@@ -1,100 +1,158 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Camera, Save, Calculator, Tag } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
-export default function Registrar() {
-  const { tipo } = useParams<{ tipo: string }>();
+const Registrar = () => {
+  const { tipo } = useParams();
   const navigate = useNavigate();
-  const isIngreso = tipo === "ingreso";
+  const { toast } = useToast();
   const [monto, setMonto] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!monto || parseFloat(monto) <= 0) {
-      toast.error("Escribe cuánto fue");
+  const esIngreso = tipo === "ingreso";
+
+  const handleGuardar = async () => {
+    if (!monto || isNaN(parseFloat(monto))) {
+      toast({
+        title: "Dato inválido",
+        description: "Por favor, ingresa un monto válido.",
+        variant: "destructive",
+      });
       return;
     }
-    toast.success(
-      isIngreso
-        ? `¡Listo! Registraste una venta de $${parseFloat(monto).toLocaleString("es-MX")}`
-        : `¡Listo! Registraste un gasto de $${parseFloat(monto).toLocaleString("es-MX")}`
-    );
-    navigate("/");
+
+    setLoading(true);
+
+    try {
+      // 1. Obtener el ID del usuario actual
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error("No hay sesión activa");
+
+      // 2. Obtener o crear un negocio por defecto para este usuario
+      let { data: negocio } = await supabase
+        .from('negocios')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .single();
+
+      if (!negocio) {
+        const { data: nuevoNegocio, error: errorNegocio } = await supabase
+          .from('negocios')
+          .insert([{ usuario_id: user.id, nombre_negocio: "Mi Negocio" }])
+          .select()
+          .single();
+        
+        if (errorNegocio) throw errorNegocio;
+        negocio = nuevoNegocio;
+      }
+
+      // 3. Guardar la transacción
+      const { error: errorTransaccion } = await supabase
+        .from('transacciones')
+        .insert([
+          {
+            negocio_id: negocio.id,
+            tipo: esIngreso ? 'ingreso' : 'gasto',
+            monto: parseFloat(monto),
+            descripcion: descripcion || (esIngreso ? "Venta del día" : "Gasto registrado"),
+            origen: 'manual'
+          }
+        ]);
+
+      if (errorTransaccion) throw errorTransaccion;
+
+      toast({
+        title: "¡Listo!",
+        description: `${esIngreso ? "Venta" : "Gasto"} guardado correctamente.`,
+      });
+      
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error al guardar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="px-4 pt-6 space-y-6 animate-slide-up">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
-        <ArrowLeft className="h-5 w-5" />
-        Regresar
-      </button>
-
-      <div className={`rounded-2xl p-6 ${isIngreso ? "bg-income-light" : "bg-expense-light"}`}>
-        <h1 className={`text-2xl font-extrabold ${isIngreso ? "text-income" : "text-expense"}`}>
-          {isIngreso ? "💰 ¿Cuánto vendiste?" : "🛒 ¿Cuánto gastaste?"}
+    <div className="animate-fade-in pb-20">
+      <div className="flex items-center mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-2">
+          <ArrowLeft className="h-6 w-6" />
+        </Button>
+        <h1 className="text-2xl font-bold">
+          Registrar {esIngreso ? "Ingreso" : "Gasto"}
         </h1>
-        <p className="text-muted-foreground mt-1">
-          {isIngreso
-            ? "Registra lo que ganaste hoy"
-            : "Registra lo que compraste o pagaste"}
-        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Monto */}
-        <div>
-          <label className="mb-2 block font-bold">Cantidad</label>
-          <div className="relative">
-            <DollarSign className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              className="w-full rounded-xl border border-input bg-card p-4 pl-12 text-2xl font-bold outline-none ring-ring focus:ring-2"
-            />
-          </div>
-        </div>
+      <div className="space-y-6">
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="bg-primary/5 pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-primary" />
+              ¿Cuánto fue?
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-3xl font-bold text-gray-400">$</span>
+              <Input
+                type="number"
+                placeholder="0.00"
+                className="text-4xl h-20 pl-12 font-bold border-none bg-gray-50 focus-visible:ring-primary"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                inputMode="decimal"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Descripcion */}
-        <div>
-          <label className="mb-2 block font-bold">¿De qué fue? (opcional)</label>
-          <div className="relative">
-            <FileText className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Ej: Venta del día, pago de luz..."
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Tag className="h-5 w-5 text-primary" />
+              ¿Qué compraste o vendiste?
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              placeholder="Ej. Venta de comida, Pago de luz..."
+              className="text-lg h-12"
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              className="w-full rounded-xl border border-input bg-card p-4 pl-12 text-base outline-none ring-ring focus:ring-2"
             />
-          </div>
-        </div>
-
-        {/* Photo upload placeholder */}
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-4 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-        >
-          <Camera className="h-5 w-5" />
-          <span className="font-semibold">Tomar foto del ticket</span>
-        </button>
-
-        {/* Submit */}
-        <button
-          type="submit"
-          className={`w-full rounded-xl p-4 text-lg font-bold shadow-md transition-all active:scale-[0.98] ${
-            isIngreso
-              ? "bg-income text-primary-foreground"
-              : "bg-expense text-primary-foreground"
-          }`}
-        >
-          {isIngreso ? "Registrar venta" : "Registrar gasto"}
-        </button>
-      </form>
+            
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <Button variant="outline" className="h-16 flex flex-col gap-1 border-dashed border-2">
+                <Camera className="h-6 w-6" />
+                <span className="text-xs">Foto del ticket</span>
+              </Button>
+              <Button 
+                className="h-16 flex flex-col gap-1 text-lg" 
+                onClick={handleGuardar}
+                disabled={loading}
+              >
+                <Save className="h-6 w-6" />
+                <span className="text-xs">{loading ? "Guardando..." : "Guardar"}</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
-}
+};
+
+export default Registrar;

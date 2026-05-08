@@ -1,30 +1,28 @@
-import { ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
-export interface Transaction {
-  id: string;
-  tipo: "ingreso" | "gasto";
-  monto: number;
-  descripcion: string;
-  fecha: string;
+interface TransactionItemProps {
+  title: string;
+  amount: number;
+  date: string;
+  type: "ingreso" | "gasto";
 }
 
-export function TransactionItem({ tipo, monto, descripcion, fecha }: Transaction) {
-  const isIngreso = tipo === "ingreso";
+export function TransactionItem({ title, amount, date, type }: TransactionItemProps) {
+  const isIncome = type === "ingreso";
+
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-card p-4 shadow-sm animate-fade-in">
-      <div className={`rounded-full p-2 ${isIngreso ? "bg-income-light" : "bg-expense-light"}`}>
-        {isIngreso ? (
-          <ArrowUpCircle className="h-6 w-6 text-income" />
-        ) : (
-          <ArrowDownCircle className="h-6 w-6 text-expense" />
-        )}
+    <div className="flex items-center justify-between rounded-2xl bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className={`rounded-xl p-2 ${isIncome ? "bg-income-light text-income" : "bg-expense-light text-expense"}`}>
+          {isIncome ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+        </div>
+        <div>
+          <p className="font-bold">{title}</p>
+          <p className="text-xs text-muted-foreground">{date}</p>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold truncate">{descripcion}</p>
-        <p className="text-xs text-muted-foreground">{fecha}</p>
-      </div>
-      <p className={`font-bold ${isIngreso ? "text-income" : "text-expense"}`}>
-        {isIngreso ? "+" : "-"}${monto.toLocaleString("es-MX")}
+      <p className={`font-extrabold ${isIncome ? "text-income" : "text-expense"}`}>
+        {isIncome ? "+" : "-"}${amount.toLocaleString("es-MX")}
       </p>
     </div>
   );
