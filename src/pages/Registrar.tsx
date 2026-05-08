@@ -1,28 +1,55 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { ArrowLeft, DollarSign, FileText, Camera } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useNegocio } from "@/hooks/useNegocio";
 
 export default function Registrar() {
   const { tipo } = useParams<{ tipo: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { negocio, loading: negocioLoading } = useNegocio();
   const isIngreso = tipo === "ingreso";
   const [monto, setMonto] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!monto || parseFloat(monto) <= 0) {
+    const valor = parseFloat(monto);
+    if (!valor || valor <= 0) {
       toast.error("Escribe cuánto fue");
+      return;
+    }
+    if (!user || !negocio) {
+      toast.error("Espera, estamos preparando tu negocio");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.from("transacciones").insert({
+      usuario_id: user.id,
+      negocio_id: negocio.id,
+      tipo: isIngreso ? "INGRESO" : "GASTO",
+      monto: valor,
+      descripcion: descripcion || null,
+      origen: "manual",
+    });
+    setBusy(false);
+    if (error) {
+      toast.error("No se pudo guardar. Intenta otra vez");
       return;
     }
     toast.success(
       isIngreso
-        ? `¡Listo! Registraste una venta de $${parseFloat(monto).toLocaleString("es-MX")}`
-        : `¡Listo! Registraste un gasto de $${parseFloat(monto).toLocaleString("es-MX")}`
+        ? `¡Listo! Registraste una venta de $${valor.toLocaleString("es-MX")}`
+        : `¡Listo! Registraste un gasto de $${valor.toLocaleString("es-MX")}`
     );
     navigate("/");
   };
+
+  if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
 
   return (
     <div className="px-4 pt-6 space-y-6 animate-slide-up">
@@ -36,14 +63,11 @@ export default function Registrar() {
           {isIngreso ? "💰 ¿Cuánto vendiste?" : "🛒 ¿Cuánto gastaste?"}
         </h1>
         <p className="text-muted-foreground mt-1">
-          {isIngreso
-            ? "Registra lo que ganaste hoy"
-            : "Registra lo que compraste o pagaste"}
+          {isIngreso ? "Registra lo que ganaste hoy" : "Registra lo que compraste o pagaste"}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Monto */}
         <div>
           <label className="mb-2 block font-bold">Cantidad</label>
           <div className="relative">
@@ -59,7 +83,6 @@ export default function Registrar() {
           </div>
         </div>
 
-        {/* Descripcion */}
         <div>
           <label className="mb-2 block font-bold">¿De qué fue? (opcional)</label>
           <div className="relative">
@@ -74,7 +97,6 @@ export default function Registrar() {
           </div>
         </div>
 
-        {/* Photo upload placeholder */}
         <button
           type="button"
           className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-4 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
@@ -83,16 +105,14 @@ export default function Registrar() {
           <span className="font-semibold">Tomar foto del ticket</span>
         </button>
 
-        {/* Submit */}
         <button
           type="submit"
-          className={`w-full rounded-xl p-4 text-lg font-bold shadow-md transition-all active:scale-[0.98] ${
-            isIngreso
-              ? "bg-income text-primary-foreground"
-              : "bg-expense text-primary-foreground"
+          disabled={busy || negocioLoading || !negocio}
+          className={`w-full rounded-xl p-4 text-lg font-bold shadow-md transition-all active:scale-[0.98] disabled:opacity-50 ${
+            isIngreso ? "bg-income text-primary-foreground" : "bg-expense text-primary-foreground"
           }`}
         >
-          {isIngreso ? "Registrar venta" : "Registrar gasto"}
+          {busy ? "Guardando..." : negocioLoading || !negocio ? "Preparando..." : isIngreso ? "Registrar venta" : "Registrar gasto"}
         </button>
       </form>
     </div>

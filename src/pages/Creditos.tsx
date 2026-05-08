@@ -1,17 +1,31 @@
 import { useState } from "react";
-import { CreditCard, ArrowLeft, Send, Info } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Send, Info } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const montos = [5000, 10000, 25000, 50000];
 
 export default function Creditos() {
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [monto, setMonto] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const handleSolicitar = () => {
+  const handleSolicitar = async () => {
     if (!monto) {
       toast.error("Selecciona un monto primero");
+      return;
+    }
+    if (!user) return;
+    setBusy(true);
+    const { error } = await supabase.from("creditos").insert({
+      usuario_id: user.id,
+      monto_solicitado: monto,
+      estatus: "SOLICITADO",
+    });
+    setBusy(false);
+    if (error) {
+      toast.error("No se pudo enviar. Intenta de nuevo");
       return;
     }
     toast.success("¡Solicitud enviada! Te contactaremos pronto 🎉");
@@ -22,7 +36,6 @@ export default function Creditos() {
     <div className="px-4 pt-6 space-y-6">
       <h1 className="text-2xl font-extrabold">💳 Créditos y apoyos</h1>
 
-      {/* Info */}
       <div className="rounded-2xl bg-accent/15 p-5">
         <div className="flex items-start gap-3">
           <Info className="h-6 w-6 text-accent shrink-0 mt-0.5" />
@@ -35,7 +48,6 @@ export default function Creditos() {
         </div>
       </div>
 
-      {/* Monto selector */}
       <div>
         <h2 className="mb-3 font-bold">¿Cuánto necesitas?</h2>
         <div className="grid grid-cols-2 gap-3">
@@ -44,9 +56,7 @@ export default function Creditos() {
               key={m}
               onClick={() => setMonto(m)}
               className={`rounded-xl border-2 p-4 text-center font-bold text-lg transition-all active:scale-95 ${
-                monto === m
-                  ? "border-primary bg-primary text-primary-foreground shadow-md"
-                  : "border-border bg-card text-foreground"
+                monto === m ? "border-primary bg-primary text-primary-foreground shadow-md" : "border-border bg-card text-foreground"
               }`}
             >
               ${m.toLocaleString("es-MX")}
@@ -55,7 +65,6 @@ export default function Creditos() {
         </div>
       </div>
 
-      {/* Simulator */}
       {monto && (
         <div className="rounded-2xl bg-muted p-5 space-y-2 animate-fade-in">
           <p className="font-bold text-lg">Simulación rápida</p>
@@ -76,13 +85,13 @@ export default function Creditos() {
         </div>
       )}
 
-      {/* Submit */}
       <button
         onClick={handleSolicitar}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary p-4 text-lg font-bold text-primary-foreground shadow-md transition-all active:scale-[0.98]"
+        disabled={busy}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary p-4 text-lg font-bold text-primary-foreground shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
       >
         <Send className="h-5 w-5" />
-        Solicitar crédito
+        {busy ? "Enviando..." : "Solicitar crédito"}
       </button>
     </div>
   );
