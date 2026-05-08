@@ -8,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
-import { apiMock } from "@/lib/mockData";
 
 const HOY = new Date();
 
@@ -27,11 +26,18 @@ export default function Dashboard() {
   }, [user]);
 
   useEffect(() => {
+    if (!negocio) return;
     (async () => {
-      const data = await apiMock.getTransactions();
-      setMovs(data as any);
+      const { data } = await supabase
+        .from("transacciones")
+        .select("id, tipo, monto, descripcion, fecha, con_factura")
+        .eq("negocio_id", negocio.id)
+        .order("fecha", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(500);
+      setMovs((data ?? []) as any);
     })();
-  }, []);
+  }, [negocio]);
 
   const { delPeriodo, recientes, resumen } = useMemo(() => {
     const inicio = `${anio}-${String(mes).padStart(2, "0")}-01`;
@@ -97,6 +103,19 @@ export default function Dashboard() {
           <QuickActionCard icon={TrendingUp} label="Hoy vendí" to="/registrar/ingreso" variant="income" />
           <QuickActionCard icon={TrendingDown} label="Hoy compré" to="/registrar/gasto" variant="expense" />
         </div>
+        <a
+          href="/expediente"
+          className="mt-3 flex items-center justify-between rounded-2xl border border-dashed border-border bg-card p-4 transition-colors hover:bg-muted"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📸</span>
+            <div>
+              <p className="font-bold">Mi expediente</p>
+              <p className="text-xs text-muted-foreground">Guarda fotos de tickets y facturas</p>
+            </div>
+          </div>
+          <span className="text-muted-foreground">›</span>
+        </a>
       </div>
 
       {/* Tarjetas fiscales */}
