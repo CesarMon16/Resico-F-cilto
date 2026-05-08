@@ -1,17 +1,65 @@
+import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { TrendingUp, TrendingDown, Bell } from "lucide-react";
 import { SummaryCard } from "@/components/SummaryCard";
 import { QuickActionCard } from "@/components/QuickActionCard";
-import { TransactionItem } from "@/components/TransactionItem";
-import { mockTransactions, mockSummary } from "@/lib/mockData";
+import { TransactionItem, Transaction } from "@/components/TransactionItem";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useNegocio } from "@/hooks/useNegocio";
+import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
+import { apiMock } from "@/lib/mockData";
+
+const HOY = new Date();
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { negocio, loading: negocioLoading } = useNegocio();
+  const [nombre, setNombre] = useState("");
+  const [movs, setMovs] = useState<(Movimiento & { id: string; descripcion: string | null })[]>([]);
+  const [mes, setMes] = useState(HOY.getMonth() + 1);
+  const [anio, setAnio] = useState(HOY.getFullYear());
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("nombre").eq("id", user.id).maybeSingle()
+      .then(({ data }) => data && setNombre(data.nombre));
+  }, [user]);
+
+  useEffect(() => {
+    (async () => {
+      const data = await apiMock.getTransactions();
+      setMovs(data as any);
+    })();
+  }, []);
+
+  const { delPeriodo, recientes, resumen } = useMemo(() => {
+    const inicio = `${anio}-${String(mes).padStart(2, "0")}-01`;
+    const finDate = new Date(anio, mes, 0); // último día del mes
+    const fin = `${anio}-${String(mes).padStart(2, "0")}-${String(finDate.getDate()).padStart(2, "0")}`;
+    const delPeriodo = movs.filter((m) => m.fecha >= inicio && m.fecha <= fin);
+    const resumen = calcularResumen(delPeriodo);
+    const recientes: Transaction[] = movs.slice(0, 4).map((t) => ({
+      id: t.id,
+      tipo: t.tipo,
+      monto: Number(t.monto),
+      descripcion: t.descripcion ?? "",
+      fecha: new Date(t.fecha + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
+    }));
+    return { delPeriodo, recientes, resumen };
+  }, [movs, mes, anio]);
+
+  if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
+
+  const periodoLabel = `${MESES_ES[mes - 1]} ${anio}`;
+  const anios = [HOY.getFullYear() - 1, HOY.getFullYear(), HOY.getFullYear() + 1];
+
   return (
     <div className="px-4 pt-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-muted-foreground text-sm">¡Hola! 👋</p>
-          <h1 className="text-2xl font-extrabold">María García</h1>
+          <h1 className="text-2xl font-extrabold">{nombre || "Bienvenido"}</h1>
         </div>
         <button className="relative rounded-full bg-muted p-2.5 transition-colors hover:bg-border">
           <Bell className="h-5 w-5 text-foreground" />
@@ -19,41 +67,102 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Summary */}
-      <SummaryCard
-        ingresos={mockSummary.ingresos}
-        gastos={mockSummary.gastos}
-        periodo={mockSummary.periodo}
-      />
+      {/* Filtros mes/año */}
+      <div className="flex gap-2">
+        <select
+          value={mes}
+          onChange={(e) => setMes(Number(e.target.value))}
+          className="flex-1 rounded-xl border border-input bg-card p-3 font-semibold outline-none focus:ring-2 ring-ring"
+        >
+          {MESES_ES.map((m, i) => (
+            <option key={m} value={i + 1}>{m}</option>
+          ))}
+        </select>
+        <select
+          value={anio}
+          onChange={(e) => setAnio(Number(e.target.value))}
+          className="rounded-xl border border-input bg-card p-3 font-semibold outline-none focus:ring-2 ring-ring"
+        >
+          {anios.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+      </div>
 
-      {/* Quick Actions */}
+      <SummaryCard ingresos={resumen.ingresosTotal} gastos={resumen.gastosTotal} periodo={periodoLabel} />
+
       <div>
         <h2 className="mb-3 font-bold text-lg">¿Qué hiciste hoy?</h2>
         <div className="grid grid-cols-2 gap-4">
-          <QuickActionCard
-            icon={TrendingUp}
-            label="Hoy vendí"
-            to="/registrar/ingreso"
-            variant="income"
-          />
-          <QuickActionCard
-            icon={TrendingDown}
-            label="Hoy compré"
-            to="/registrar/gasto"
-            variant="expense"
-          />
+          <QuickActionCard icon={TrendingUp} label="Hoy vendí" to="/registrar/ingreso" variant="income" />
+          <QuickActionCard icon={TrendingDown} label="Hoy compré" to="/registrar/gasto" variant="expense" />
         </div>
       </div>
 
-      {/* Recent */}
+      {/* Tarjetas fiscales */}
+      <div>
+        <h2 className="mb-3 font-bold text-lg">Tus impuestos estimados</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <FiscalCard label="Utilidad" value={resumen.utilidad} tone="primary" />
+          <FiscalCard label="Total a pagar" value={resumen.totalImpuestos} tone="warning" />
+          <FiscalCard
+            label={`ISR RESICO (${(resumen.tasaISR * 100).toFixed(2)}%)`}
+            value={resumen.isr}
+            tone="default"
+          />
+          <FiscalCard
+            label="IVA a pagar"
+            value={resumen.ivaAPagar}
+            tone={resumen.ivaAPagar < 0 ? "success" : "default"}
+            note={resumen.ivaAPagar < 0 ? "Saldo a favor" : undefined}
+          />
+          <FiscalCard label="IVA cobrado" value={resumen.ivaCobrado} tone="muted" />
+          <FiscalCard label="IVA acreditable" value={resumen.ivaAcreditable} tone="muted" />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Cálculo estimado. No sustituye la asesoría de un contador ni la información oficial del SAT.
+        </p>
+      </div>
+
       <div>
         <h2 className="mb-3 font-bold text-lg">Últimos movimientos</h2>
         <div className="space-y-3">
-          {mockTransactions.slice(0, 4).map((t) => (
-            <TransactionItem key={t.id} {...t} />
-          ))}
+          {recientes.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">
+              Aún no registras nada en {periodoLabel}.
+            </p>
+          ) : (
+            recientes.map((t) => <TransactionItem key={t.id} {...t} />)
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function FiscalCard({
+  label,
+  value,
+  tone = "default",
+  note,
+}: {
+  label: string;
+  value: number;
+  tone?: "default" | "primary" | "warning" | "success" | "muted";
+  note?: string;
+}) {
+  const toneCls = {
+    default: "bg-card",
+    primary: "bg-primary/10 border-primary/20",
+    warning: "bg-warning-light border-warning/20",
+    success: "bg-success-light border-success/20",
+    muted: "bg-muted",
+  }[tone];
+  return (
+    <div className={`rounded-xl border p-3 ${toneCls}`}>
+      <p className="text-xs text-muted-foreground font-semibold">{label}</p>
+      <p className="mt-1 text-lg font-extrabold">{formatMXN(value)}</p>
+      {note && <p className="text-xs text-success font-semibold mt-0.5">{note}</p>}
     </div>
   );
 }
