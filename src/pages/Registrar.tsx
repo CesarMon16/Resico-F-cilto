@@ -1,100 +1,227 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Camera, Save, Calculator, Tag, Sparkles } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
-export default function Registrar() {
-  const { tipo } = useParams<{ tipo: string }>();
+const Registrar = () => {
+  const { tipo } = useParams();
   const navigate = useNavigate();
-  const isIngreso = tipo === "ingreso";
+  const { toast } = useToast();
   const [monto, setMonto] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!monto || parseFloat(monto) <= 0) {
-      toast.error("Escribe cuánto fue");
+  const esIngreso = tipo === "ingreso";
+
+  // --- FUNCIÓN REAL DE IA (CONEXIÓN CON EDGE FUNCTION) ---
+  const handleScanTicket = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsScanning(true);
+      toast({ 
+        title: "Escaneando ticket...", 
+        description: "Enviando imagen a la IA para análisis.",
+      });
+
+      // 1. Convertimos la imagen a Base64
+      const reader = new FileReader();
+      const base64 = await new Promise((res) => {
+        reader.onload = () => res(reader.result?.toString().split(',')[1]);
+        reader.readAsDataURL(file);
+      });
+
+      // 2. Invocamos la función ocr-ticket en Supabase
+      const { data, error } = await supabase.functions.invoke('ocr-ticket', {
+        body: { imageBase64: base64 }
+      });
+
+      if (error) throw error;
+
+      // 3. Procesamos la respuesta de la IA
+      if (data && data.total > 0) {
+        setMonto(data.total.toString());
+        setDescripcion("Gasto detectado por IA (Google Vision)");
+        
+        toast({ 
+          title: "¡Lectura exitosa!", 
+          description: `Se detectó un monto de $${data.total}. Por favor, verifícalo.`,
+        });
+      } else {
+        toast({ 
+          title: "Aviso", 
+          description: "No pudimos extraer un monto claro. Intenta ingresarlo manual.",
+        });
+      }
+
+    } catch (error: any) {
+      console.error("Error OCR:", error);
+      toast({ 
+        title: "Error de lectura", 
+        description: "Hubo un fallo al conectar con el servicio de IA.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsScanning(false);
+      // Limpiamos el input de archivo
+      if (event.target) event.target.value = '';
+    }
+  };
+
+  const handleGuardar = async () => {
+    if (!monto || isNaN(parseFloat(monto))) {
+      toast({
+        title: "Dato inválido",
+        description: "Por favor, ingresa un monto válido.",
+        variant: "destructive",
+      });
       return;
     }
-    toast.success(
-      isIngreso
-        ? `¡Listo! Registraste una venta de $${parseFloat(monto).toLocaleString("es-MX")}`
-        : `¡Listo! Registraste un gasto de $${parseFloat(monto).toLocaleString("es-MX")}`
-    );
-    navigate("/");
+
+    setLoading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No hay sesión activa");
+
+      let { data: negocio } = await supabase
+        .from('negocios')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .single();
+
+      if (!negocio) {
+        const { data: nuevoNegocio, error: errorNegocio } = await supabase
+          .from('negocios')
+          .insert([{ usuario_id: user.id, nombre_negocio: "Mi Negocio" }])
+          .select()
+          .single();
+        
+        if (errorNegocio) throw errorNegocio;
+        negocio = nuevoNegocio;
+      }
+
+      const { error: errorTransaccion } = await supabase
+        .from('transacciones')
+        .insert([
+          {
+            negocio_id: negocio.id,
+            tipo: esIngreso ? 'ingreso' : 'gasto',
+            monto: parseFloat(monto),
+            descripcion: descripcion || (esIngreso ? "Venta del día" : "Gasto registrado"),
+            origen: isScanning ? 'OCR' : 'manual'
+          }
+        ]);
+
+      if (errorTransaccion) throw errorTransaccion;
+
+      toast({
+        title: "¡Listo!",
+        description: `${esIngreso ? "Venta" : "Gasto"} guardado correctamente.`,
+      });
+      
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error al guardar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="px-4 pt-6 space-y-6 animate-slide-up">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
-        <ArrowLeft className="h-5 w-5" />
-        Regresar
-      </button>
-
-      <div className={`rounded-2xl p-6 ${isIngreso ? "bg-income-light" : "bg-expense-light"}`}>
-        <h1 className={`text-2xl font-extrabold ${isIngreso ? "text-income" : "text-expense"}`}>
-          {isIngreso ? "💰 ¿Cuánto vendiste?" : "🛒 ¿Cuánto gastaste?"}
+    <div className="animate-fade-in pb-20">
+      <div className="flex items-center mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-2">
+          <ArrowLeft className="h-6 w-6" />
+        </Button>
+        <h1 className="text-2xl font-bold">
+          Registrar {esIngreso ? "Ingreso" : "Gasto"}
         </h1>
-        <p className="text-muted-foreground mt-1">
-          {isIngreso
-            ? "Registra lo que ganaste hoy"
-            : "Registra lo que compraste o pagaste"}
-        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Monto */}
-        <div>
-          <label className="mb-2 block font-bold">Cantidad</label>
-          <div className="relative">
-            <DollarSign className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              className="w-full rounded-xl border border-input bg-card p-4 pl-12 text-2xl font-bold outline-none ring-ring focus:ring-2"
-            />
-          </div>
-        </div>
+      <div className="space-y-6">
+        {/* Card del Monto */}
+        <Card className="border-2 border-primary/20 overflow-hidden">
+          <CardHeader className="bg-primary/5 pb-4">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-primary" />
+                ¿Cuánto fue?
+              </div>
+              {isScanning && <Sparkles className="h-5 w-5 text-secondary animate-pulse" />}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-3xl font-bold text-gray-400">$</span>
+              <Input
+                type="number"
+                placeholder="0.00"
+                className={`text-4xl h-20 pl-12 font-bold border-none bg-gray-50 focus-visible:ring-primary transition-all ${isScanning ? "opacity-50" : "opacity-100"}`}
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                inputMode="decimal"
+                disabled={isScanning}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Descripcion */}
-        <div>
-          <label className="mb-2 block font-bold">¿De qué fue? (opcional)</label>
-          <div className="relative">
-            <FileText className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Ej: Venta del día, pago de luz..."
+        {/* Card de Detalles */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Tag className="h-5 w-5 text-primary" />
+              ¿Qué compraste o vendiste?
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              placeholder="Ej. Venta de comida, Pago de luz..."
+              className="text-lg h-12"
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              className="w-full rounded-xl border border-input bg-card p-4 pl-12 text-base outline-none ring-ring focus:ring-2"
+              disabled={isScanning}
             />
-          </div>
-        </div>
+            
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              {!esIngreso ? (
+                <label className={`h-16 flex flex-col items-center justify-center gap-1 border-dashed border-2 rounded-md cursor-pointer transition-colors ${isScanning ? "bg-primary/10 border-primary" : "border-gray-200 hover:bg-gray-50"}`}>
+                  <Camera className={`h-6 w-6 ${isScanning ? "text-primary animate-bounce" : "text-gray-500"}`} />
+                  <span className="text-[10px] font-bold uppercase">{isScanning ? "Leyendo..." : "Usar IA Ticket"}</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleScanTicket} disabled={isScanning} />
+                </label>
+              ) : (
+                <div className="h-16 flex flex-col items-center justify-center gap-1 border-2 border-gray-100 rounded-md bg-gray-50 opacity-50">
+                   <Sparkles className="h-6 w-6 text-gray-400" />
+                   <span className="text-[10px] font-bold uppercase">Solo Gastos</span>
+                </div>
+              )}
 
-        {/* Photo upload placeholder */}
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-4 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-        >
-          <Camera className="h-5 w-5" />
-          <span className="font-semibold">Tomar foto del ticket</span>
-        </button>
-
-        {/* Submit */}
-        <button
-          type="submit"
-          className={`w-full rounded-xl p-4 text-lg font-bold shadow-md transition-all active:scale-[0.98] ${
-            isIngreso
-              ? "bg-income text-primary-foreground"
-              : "bg-expense text-primary-foreground"
-          }`}
-        >
-          {isIngreso ? "Registrar venta" : "Registrar gasto"}
-        </button>
-      </form>
+              <Button 
+                className="h-16 flex flex-col gap-1 text-lg font-bold" 
+                onClick={handleGuardar}
+                disabled={loading || isScanning}
+              >
+                <Save className="h-6 w-6" />
+                <span className="text-xs">{loading ? "..." : "Guardar"}</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
-}
+};
+
+export default Registrar;
