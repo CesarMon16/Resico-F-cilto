@@ -4,6 +4,11 @@ import { Users, Store, Receipt, PieChart, Settings2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminUsersList } from "@/components/admin/AdminUsersList";
 import { AdminFiscalRules } from "@/components/admin/AdminFiscalRules";
+import { AdminGirosChart } from "@/components/admin/AdminGirosChart";
+import { AdminGrowthChart } from "@/components/admin/AdminGrowthChart";
+import { AdminAuditLog } from "@/components/admin/AdminAuditLog";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, Activity, History } from "lucide-react";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -48,6 +53,8 @@ export default function AdminDashboard() {
     fetchStats();
   }, []);
 
+  const totalNegocios = stats.negocios || 1;
+
   return (
     <div className="px-4 pt-6 space-y-6 pb-24">
       <div>
@@ -56,9 +63,10 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="metricas" className="w-full">
-        <TabsList className="w-full mb-6 grid grid-cols-3 h-auto p-1 bg-muted/50 rounded-2xl">
+        <TabsList className="w-full mb-6 grid grid-cols-4 h-auto p-1 bg-muted/50 rounded-2xl">
           <TabsTrigger value="metricas" className="rounded-xl py-2">Métricas</TabsTrigger>
           <TabsTrigger value="usuarios" className="rounded-xl py-2">Usuarios</TabsTrigger>
+          <TabsTrigger value="auditoria" className="rounded-xl py-2">Auditoría</TabsTrigger>
           <TabsTrigger value="reglas" className="rounded-xl py-2">Reglas</TabsTrigger>
         </TabsList>
 
@@ -71,34 +79,59 @@ export default function AdminDashboard() {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-4">
-                <StatCard icon={Users} label="Usuarios totales" value={stats.usuarios} />
-                <StatCard icon={Store} label="Negocios activos" value={stats.negocios} />
-                <StatCard icon={Receipt} label="Transacciones" value={stats.transacciones} />
+                <StatCard icon={Users} label="Usuarios" value={stats.usuarios} color="bg-blue-500" />
+                <StatCard icon={Store} label="Negocios" value={stats.negocios} color="bg-purple-500" />
+                <StatCard icon={Receipt} label="Ventas/Gastos" value={stats.transacciones} color="bg-emerald-500" />
+                <StatCard icon={Activity} label="Salud Sistema" value="99.9%" color="bg-orange-500" isPercentage />
               </div>
 
-              <div className="mt-8 rounded-3xl border border-border bg-card p-5 shadow-sm">
-                <div className="flex items-center gap-3 mb-5">
+              {/* Gráfica de Crecimiento */}
+              <div className="rounded-3xl border border-border bg-card p-6 shadow-sm overflow-hidden relative">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h2 className="font-extrabold text-xl">Actividad Global</h2>
+                    <p className="text-muted-foreground text-sm">Transacciones registradas por mes</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-green-100 text-green-700 border-none px-3 py-1">
+                    <TrendingUp className="h-3 w-3 mr-1" /> +12%
+                  </Badge>
+                </div>
+                <AdminGrowthChart />
+              </div>
+
+              {/* Segmentación por Giro */}
+              <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-primary/10 rounded-xl text-primary">
                     <PieChart className="h-5 w-5" />
                   </div>
-                  <h2 className="font-extrabold text-lg">Segmentación por Giro</h2>
+                  <div>
+                    <h2 className="font-extrabold text-xl">Mercado por Giro</h2>
+                    <p className="text-muted-foreground text-sm">Distribución de tipos de negocio</p>
+                  </div>
                 </div>
                 
-                <div className="space-y-4">
-                  {Object.entries(giros).length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No hay negocios registrados.</p>
-                  ) : (
-                    Object.entries(giros)
-                      .sort((a, b) => b[1] - a[1]) // Ordenar de mayor a menor
+                <div className="grid md:grid-cols-2 gap-8 items-center">
+                  <AdminGirosChart data={giros} />
+                  <div className="space-y-4">
+                    {Object.entries(giros)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 4)
                       .map(([giro, count]) => (
-                        <div key={giro} className="flex justify-between items-center">
-                          <span className="text-sm font-bold text-muted-foreground line-clamp-1 mr-4">{giro}</span>
-                          <span className="text-base font-extrabold bg-muted px-3 py-1 rounded-xl whitespace-nowrap">
-                            {count} {count === 1 ? "negocio" : "negocios"}
-                          </span>
+                        <div key={giro} className="space-y-1.5">
+                          <div className="flex justify-between text-sm font-bold">
+                            <span>{giro}</span>
+                            <span>{Math.round((count / totalNegocios) * 100)}%</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary rounded-full transition-all duration-1000" 
+                              style={{ width: `${(count / totalNegocios) * 100}%` }}
+                            />
+                          </div>
                         </div>
-                      ))
-                  )}
+                      ))}
+                  </div>
                 </div>
               </div>
             </>
@@ -109,6 +142,10 @@ export default function AdminDashboard() {
           <AdminUsersList />
         </TabsContent>
 
+        <TabsContent value="auditoria" className="mt-0">
+          <AdminAuditLog />
+        </TabsContent>
+
         <TabsContent value="reglas" className="mt-0">
           <AdminFiscalRules />
         </TabsContent>
@@ -117,12 +154,27 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
+function StatCard({ 
+  icon: Icon, 
+  label, 
+  value, 
+  color,
+  isPercentage = false 
+}: { 
+  icon: React.ElementType; 
+  label: string; 
+  value: number | string;
+  color: string;
+  isPercentage?: boolean;
+}) {
   return (
-    <div className="rounded-3xl border border-border bg-card p-5 shadow-sm transition-all hover:scale-[1.02]">
-      <Icon className="h-8 w-8 text-primary mb-3 opacity-90" />
-      <p className="text-3xl font-black tracking-tight">{value}</p>
-      <p className="text-xs text-muted-foreground font-bold mt-1 uppercase tracking-wider">{label}</p>
+    <div className="rounded-3xl border border-border bg-card p-5 shadow-sm transition-all hover:shadow-md relative overflow-hidden group">
+      <div className={`absolute -right-2 -top-2 h-16 w-16 rounded-full ${color} opacity-[0.03] group-hover:scale-150 transition-transform duration-500`} />
+      <div className={`p-2 rounded-xl w-fit mb-3 ${color} bg-opacity-10 text-opacity-100`}>
+        <Icon className={`h-5 w-5`} style={{ color: 'inherit' }} />
+      </div>
+      <p className="text-3xl font-black tracking-tight">{value}{isPercentage ? "" : ""}</p>
+      <p className="text-[10px] text-muted-foreground font-black mt-1 uppercase tracking-widest">{label}</p>
     </div>
   );
 }
