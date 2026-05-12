@@ -12,7 +12,9 @@ export type AccionAuditoria =
   | "CLIENTE_ASIGNADO"
   | "CLIENTE_REMOVIDO"
   | "CREDITO_SOLICITADO"
-  | "TICKET_SUBIDO";
+  | "TICKET_SUBIDO"
+  | "OCR_PROCESADO"
+  | "TICKET_VINCULADO";
 
 export async function auditLog(accion: AccionAuditoria, metadata: Record<string, unknown> = {}) {
   try {
