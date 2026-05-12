@@ -1,11 +1,23 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { crearTransaccion } from "@/services/transacciones.service";
 import { handleError } from "@/lib/errors";
+import { supabase } from "@/integrations/supabase/client";
+import { calcularAcumuladoAnual, validarTopeResico } from "@/lib/fiscalEngine";
+import { LIMITE_ANUAL_RESICO } from "@/lib/constants";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Registrar() {
   const { tipo } = useParams<{ tipo: string }>();
@@ -18,6 +30,36 @@ export default function Registrar() {
   const [descripcion, setDescripcion] = useState("");
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState({ monto: false, descripcion: false });
+
+  // ── Estado del diálogo de límite excedido ──
+  const [limiteExcedidoOpen, setLimiteExcedidoOpen] = useState(false);
+
+  // ── Acumulado anual (solo para ingresos) ──
+  const [acumuladoAnual, setAcumuladoAnual] = useState(0);
+
+  useEffect(() => {
+    if (!isIngreso || !negocio) return;
+    const anioActual = new Date().getFullYear();
+    supabase
+      .from("transacciones")
+      .select("monto, tipo, fecha")
+      .eq("negocio_id", negocio.id)
+      .eq("tipo", "INGRESO")
+      .gte("fecha", `${anioActual}-01-01`)
+      .lte("fecha", `${anioActual}-12-31`)
+      .then(({ data }) => {
+        if (!data) return;
+        const acum = calcularAcumuladoAnual(
+          data.map((r) => ({
+            monto: Number(r.monto),
+            tipo: "ingreso",
+            fecha: r.fecha as string,
+          })),
+          anioActual,
+        );
+        setAcumuladoAnual(acum);
+      });
+  }, [isIngreso, negocio]);
 
   /* ── Validaciones ── */
   const montoNum = parseFloat(monto);
@@ -48,6 +90,14 @@ export default function Registrar() {
       toast.error("Espera, estamos preparando tu negocio");
       return;
     }
+
+    // ── Validación de tope anual RESICO (solo aplica a ingresos) ──
+    if (isIngreso && !validarTopeResico(acumuladoAnual, montoNum)) {
+      // Bloquear la mutación y mostrar diálogo de restricción
+      setLimiteExcedidoOpen(true);
+      return;
+    }
+
     setBusy(true);
     try {
       const r = await crearTransaccion({
@@ -232,6 +282,33 @@ export default function Registrar() {
           </p>
         )}
       </form>
+
+      {/* ── AlertDialog: Límite RESICO excedido ── */}
+      <AlertDialog open={limiteExcedidoOpen} onOpenChange={setLimiteExcedidoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Código de restricción: ERR_LIMITE_RESICO_01
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed">
+              El registro de esta transacción resulta en un acumulado anual superior a{" "}
+              <span className="font-bold text-foreground">
+                ${LIMITE_ANUAL_RESICO.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+              </span>
+              . El sistema bloqueará la operación. Requiere transición a Régimen General de Ley.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setLimiteExcedidoOpen(false)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Entendido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
