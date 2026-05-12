@@ -19,8 +19,9 @@ RESTRICCIÓN CRÍTICA: Tus respuestas NUNCA deben superar los 200 caracteres de 
 3. Si el usuario pregunta "cuánto debo pagar", "cuánto he vendido" o "resumen" -> Llama a consultar_resumen.
 
 [REGLAS DE RECOLECCIÓN DE DATOS (SLOT FILLING)]
-- Si el usuario indica un monto de ingreso o gasto, pero no menciona si existe factura, DEBES pausar y preguntar: "¿Te dieron factura por esto? (sí/no)".
-- Límite de insistencia: Si tras 3 preguntas el usuario no responde claramente los datos necesarios, cancela el registro actual y responde: "Se canceló el registro. ¿Qué te gustaría anotar ahora?"
+- REQUERIMIENTO CRÍTICO: Para registrar ingresos o gastos, DEBES tener: monto, descripción (concepto) y saber si tiene factura.
+- Si falta el dato de factura (con_factura is null), NO llames a la base de datos. Responde solicitando el dato.
+- Esquema de retorno para falta de datos: { status: 'REQUIRES_ACTION', missing_slots: ['con_factura'], message_trigger: 'Para proceder con el registro, confirme si cuenta con un CFDI (factura) emitido.' }
 
 [RESTRICCIONES DE VOCABULARIO]
 - ESTÁ PROHIBIDO usar los siguientes términos: "ISR", "IVA acreditable", "base gravable", "deducciones".
@@ -53,12 +54,19 @@ Deno.serve(async (req) => {
       registrar_ingreso: tool({
         description: "Registra una venta/ingreso del negocio.",
         inputSchema: z.object({
-          monto: z.number().positive().describe("Total cobrado en pesos (con IVA incluido)"),
-          descripcion: z.string().optional().describe("Qué vendió, ej: 'tortillas'"),
-          con_factura: z.boolean().default(false).describe("¿Le dio factura al cliente?"),
+          monto: z.number().positive().describe("Total cobrado en pesos"),
+          descripcion: z.string().describe("Concepto de la venta"),
+          con_factura: z.boolean().nullable().describe("¿Hubo factura? null si no se sabe"),
           metodo_pago: z.enum(["efectivo", "transferencia", "tarjeta", "otro"]).optional(),
         }),
         execute: async (input) => {
+          if (input.con_factura === null) {
+            return { 
+              status: "REQUIRES_ACTION", 
+              missing_slots: ["con_factura"], 
+              message_trigger: "Para proceder con el registro del ingreso, confirme mediante un booleano (sí/no) si cuenta con un Comprobante Fiscal Digital por Internet (CFDI) emitido." 
+            };
+          }
           const { error, data } = await supabase.from("transacciones").insert({
             usuario_id: user.id,
             negocio_id,
@@ -77,13 +85,20 @@ Deno.serve(async (req) => {
       registrar_gasto: tool({
         description: "Registra un gasto/compra del negocio.",
         inputSchema: z.object({
-          monto: z.number().positive(),
-          descripcion: z.string().optional(),
-          con_factura: z.boolean().default(false),
+          monto: z.number().positive().describe("Monto del gasto"),
+          descripcion: z.string().describe("Concepto del gasto"),
+          con_factura: z.boolean().nullable().describe("¿Hubo factura? null si no se sabe"),
           contraparte: z.string().optional().describe("Dónde compró"),
           metodo_pago: z.enum(["efectivo", "transferencia", "tarjeta", "otro"]).optional(),
         }),
         execute: async (input) => {
+          if (input.con_factura === null) {
+            return { 
+              status: "REQUIRES_ACTION", 
+              missing_slots: ["con_factura"], 
+              message_trigger: "Para proceder con el registro del gasto, confirme mediante un booleano (sí/no) si cuenta con un Comprobante Fiscal Digital por Internet (CFDI) emitido." 
+            };
+          }
           const { error, data } = await supabase.from("transacciones").insert({
             usuario_id: user.id,
             negocio_id,

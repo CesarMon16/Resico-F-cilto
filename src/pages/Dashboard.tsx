@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
+import type { Tables } from "@/integrations/supabase/types";
 
 function saludo() {
   const h = new Date().getHours();
@@ -24,7 +25,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { negocio, loading: negocioLoading } = useNegocio();
   const [nombre, setNombre] = useState("");
-  const [movs, setMovs] = useState<(Movimiento & { id: string; descripcion: string | null })[]>([]);
+  const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [mes, setMes] = useState(HOY.getMonth() + 1);
   const [anio, setAnio] = useState(HOY.getFullYear());
 
@@ -44,7 +45,7 @@ export default function Dashboard() {
         .order("fecha", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(500);
-      setMovs((data ?? []) as (Movimiento & { id: string; descripcion: string | null })[]);
+      setMovs(data ?? []);
     })();
   }, [negocio]);
 

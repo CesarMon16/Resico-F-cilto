@@ -1,78 +1,70 @@
-# Manual de Usuario — Plataforma Facilito
+# Guía de Uso - Plataforma RESICO
 
-¡Bienvenido a **Facilito**! Tu asistente virtual que te ayudará a llevar el control de tus ventas, gastos y a saber cuánto debes pagar de impuestos, sin complicaciones ni palabras difíciles.
+Bienvenido a tu asistente fiscal digital. Esta guía te enseñará a usar la plataforma paso a paso para que puedas gestionar tu negocio sin complicaciones.
+
+## 1. Primeros Pasos: Registro de tu Negocio
+
+Al entrar por primera vez, el sistema te pedirá los datos básicos de tu actividad.
+
+**Pasos a seguir:**
+1. Presiona el botón **"Comenzar Onboarding"**.
+2. Escribe el **Nombre de tu Negocio** (ej. "Abarrotes La Esperanza").
+3. Selecciona tu **Giro Comercial** de la lista.
+4. Indica tu **Ubicación** aproximada.
+5. Presiona **"Finalizar Registro"**.
+
+```text
+PANTALLA: Preparar Negocio
+[ Campo: Nombre del Negocio ]
+[ Selector: Giro (Tienda, Servicios, etc.) ]
+[ Botón: Finalizar Registro ]
+```
+
+## 2. Cómo registrar una Venta o un Gasto
+
+Puedes hacerlo hablando con la IA o mediante el formulario rápido.
+
+### Opción A: Usando el Asistente (Chat)
+1. Ve a la sección **"Asistente"** en el menú inferior.
+2. Escribe o di algo como: *"Vendí $500 de mercancía"* o *"Pagué $200 de luz"*.
+3. El asistente te preguntará si tienes factura. Responde presionando los botones **"Sí"** o **"No"**.
+4. ¡Listo! El registro se guarda automáticamente.
+
+### Opción B: Registro Manual
+1. Presiona el botón **(+)** en la pantalla principal.
+2. Selecciona **"Registrar Venta"** o **"Registrar Gasto"**.
+3. Ingresa el monto y una breve descripción.
+4. Presiona **"Guardar"**.
+
+## 3. Consultar tus Impuestos y Salud Financiera
+
+En la pantalla de inicio siempre verás un resumen actualizado de tu dinero.
+
+*   **Ingresos Mensuales**: Todo lo que has ganado en el mes actual.
+*   **Gastos Mensuales**: Todo lo que has gastado.
+*   **Estimado de Impuestos**: El sistema calcula automáticamente cuánto deberás pagar de ISR e IVA para que no tengas sorpresas.
+
+```text
+PANTALLA: Inicio (Dashboard)
++---------------------------+
+|  SALUD FINANCIERA         |
+|  Ganancias: $15,000       |
+|  Gastos:    $5,000        |
+|  Impuestos: $250          |
++---------------------------+
+```
+
+## 4. Gestión de tu Expediente Digital
+
+Para que nunca pierdas tus papeles importantes, usa el Expediente.
+
+1. Selecciona **"Expediente"** en el menú.
+2. Elige el **Mes y Año** que quieras revisar.
+3. Para subir un ticket o factura:
+    * Presiona el icono de la **Cámara**.
+    * Toma una foto clara del papel.
+    * El sistema leerá el monto automáticamente.
+    * Presiona **"Guardar en Expediente"**.
 
 ---
-
-## 1. Primeros pasos
-
-### ¿Cómo me registro?
-1. Entra a la página web desde tu celular o computadora.
-2. Ingresa tu **correo electrónico** y crea una **contraseña**.
-3. El sistema te preguntará tu nombre y a qué te dedicas (por ejemplo: "Abarrotes", "Papelería", "Servicios independientes").
-4. ¡Listo! Ya estás adentro y listo para usar tu asistente.
-
-### Elige tu rol (¿Quién eres en Facilito?)
-- **Soy comerciante:** Si tienes un negocio y quieres registrar tus ventas.
-- **Soy contador:** Si quieres usar la plataforma para supervisar y ayudar a tus clientes.
-
----
-
-## 2. Uso Diario (Para Comerciantes)
-
-Tu pantalla de inicio (Dashboard) es donde pasarás la mayor parte del tiempo. Ahí verás un resumen de cómo te va en el mes.
-
-### Registrar una Venta (Ingreso)
-1. Toca el botón verde grandote que dice **"Hoy vendí"**.
-2. Escribe cuánto fue el monto (ej. `$500`).
-3. (Opcional) Ponle una nota como "Venta de mercancía".
-4. Toca **Guardar**. ¡Ya quedó anotado!
-
-### Registrar un Gasto
-1. Toca el botón rojo que dice **"Hoy compré"**.
-2. Escribe de cuánto fue el gasto.
-3. Si tienes el ticket o la factura en foto, puedes subirlo tocando "Subir foto del ticket".
-4. Toca **Guardar**.
-
-> **💡 Ojo:** Si te quedas sin internet (sin señal en tu celular), no te preocupes. Tú sigue anotando tus ventas. Facilito las guardará en tu teléfono y las subirá automáticamente cuando vuelvas a tener señal.
-
----
-
-## 3. ¿Cuánto voy a pagar de impuestos? (Tu Declaración)
-
-Olvida las calculadoras complicadas. 
-1. Toca el botón de **"Declarar"** en la parte de abajo de tu pantalla.
-2. El sistema revisará automáticamente todas las ventas y gastos que anotaste en el mes.
-3. Te dirá exactamente tu estimado a pagar de **ISR** e **IVA** según las reglas de RESICO. 
-
----
-
-## 4. Pedir un Crédito
-
-Si necesitas dinero para hacer crecer tu negocio:
-1. Ve a la sección **"Créditos"**.
-2. Desliza la barra para elegir cuánto dinero necesitas. El sistema te mostrará automáticamente un pre-aprobado basado en lo que has estado vendiendo.
-3. Elige en cuántos meses quieres pagarlo.
-4. Verás de cuánto quedaría tu mensualidad aproximada.
-5. Si estás de acuerdo, toca **"Solicitar ahora"**.
-
----
-
-## 5. Trabajar con tu Contador
-
-Si ya tienes un contador, Facilito hace que trabajar con él sea súper fácil:
-1. Ve a tu **Perfil**.
-2. Busca la sección de Contador y escribe el correo electrónico de tu contador.
-3. Cuando tu contador entre a Facilito con ese correo, **podrá ver tus totales** y ayudarte con tus declaraciones, pero **no podrá** registrar ventas por ti (tu información es tuya).
-
----
-
-## 6. Dudas frecuentes
-
-**¿Facilito está conectado al SAT?**
-No por ahora. Facilito es tu libreta de apuntes privada. Sirve para que tengas un estimado real de tu negocio.
-
-**¿Qué pasa si me equivoco anotando una venta?**
-Puedes ir a la pestaña **"Historial"**, buscar la anotación y borrarla tocando el icono de basura.
-
-¡Y eso es todo! Empieza a anotar todo lo que vendas hoy y toma el control de tu negocio.
+*Esta guía está diseñada para comerciantes y microempresarios. No requiere conocimientos contables previos.*

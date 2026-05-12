@@ -101,7 +101,6 @@ function FilaMovimiento({
               <div className="flex items-center gap-1">
                 <span className="text-sm font-semibold text-muted-foreground">$</span>
                 <input
-                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                   type="number"
                   inputMode="decimal"

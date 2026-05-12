@@ -7,7 +7,7 @@ import { useNegocio } from "@/hooks/useNegocio";
 import { TransaccionesService } from "@/services/transacciones.service";
 import { OcrService } from "@/services/ocr.service";
 import { handleError } from "@/lib/errors";
-import { type DatosTicket } from "@/lib/ocr";
+import { procesarImagenTicket, type OCRResult } from "@/lib/ocrEngine";
 import { CameraOverlay } from "@/components/CameraOverlay";
 import { supabase } from "@/integrations/supabase/client";
 import { calcularAcumuladoAnual, validarTopeResico } from "@/lib/fiscalEngine";
@@ -43,7 +43,7 @@ export default function Registrar() {
   const [ocrStep, setOcrStep] = useState<string>("");
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [ocrResult, setOcrResult] = useState<DatosTicket | null>(null);
+  const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
   
@@ -148,30 +148,24 @@ export default function Registrar() {
     setOcrResult(null);
     
     try {
-      const ocrService = new OcrService(user!.id, negocio!.id);
-      setOcrStep("Escaneando imagen...");
-      await new Promise(r => setTimeout(r, 800));
+      setOcrStep("Analizando imagen con IA...");
+      const datos = await procesarImagenTicket(file);
       
-      setOcrStep("Leyendo texto con IA...");
-      const datos = await ocrService.procesarTicket(file);
-      
-      setOcrStep("Extrayendo montos y conceptos...");
+      setOcrStep("Extrayendo montos...");
       await new Promise(r => setTimeout(r, 600));
 
-      if (datos.monto) {
-        setMonto(String(datos.monto));
+      if (datos.monto_detectado) {
+        setMonto(String(datos.monto_detectado.toFixed(2)));
         setTouched(t => ({ ...t, monto: true }));
       }
       
-      const concepto = datos.comercio 
-        ? `${datos.comercio} — ${datos.categoria}` 
-        : datos.categoria;
-        
-      setDescripcion(concepto);
-      setTouched(t => ({ ...t, descripcion: true }));
+      if (datos.rfc_emisor) {
+        setDescripcion(`Gasto detectado (RFC: ${datos.rfc_emisor})`);
+        setTouched(t => ({ ...t, descripcion: true }));
+      }
       
-      if (datos.fecha) {
-        setFecha(datos.fecha);
+      if (datos.fecha_emision) {
+        setFecha(datos.fecha_emision.split("T")[0]);
       }
       
       setOcrResult(datos);
@@ -242,13 +236,18 @@ export default function Registrar() {
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-4 pt-10 text-white">
                 <p className="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">Detectamos esto:</p>
                 <div className="flex items-center gap-2">
-                  {ocrResult.confianza === "alta" ? (
+                  {ocrResult.confidence_score >= 0.9 ? (
                     <div className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30 font-bold">
-                      <Check className="h-3 w-3" /> Todo parece correcto
+                      <Check className="h-3 w-3" /> Todo parece correcto ({Math.round(ocrResult.confidence_score * 100)}%)
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30 font-bold">
                       <AlertCircle className="h-3 w-3" /> Revisa los datos
+                    </div>
+                  )}
+                  {ocrResult.rfc_emisor && (
+                    <div className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">
+                      RFC: {ocrResult.rfc_emisor}
                     </div>
                   )}
                 </div>

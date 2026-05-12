@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { calcularResumen, explicarISR, explicarIVA, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
 import { SpinnerInline } from "@/components/SkeletonCard";
 import { EmptyState } from "@/components/EmptyState";
+import { Button } from "@/components/ui/button";
+import { generarReporteMensualCSV } from "@/lib/exportEngine";
 
 const HOY = new Date();
 
@@ -72,6 +74,16 @@ export default function ContadorCliente() {
         <h1 className="text-2xl font-extrabold">{perfil?.nombre ?? "Cargando..."}</h1>
         <p className="text-sm text-muted-foreground">{perfil?.rfc ?? "Sin RFC"} · {perfil?.correo ?? ""}</p>
       </div>
+
+      {!loading && movs.length > 0 && (
+        <Button
+          variant="outline"
+          onClick={() => generarReporteMensualCSV(movs, mes, anio)}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border-primary text-primary hover:bg-primary/5 font-bold"
+        >
+          <Download className="h-4 w-4" /> Descargar Reporte (.csv)
+        </Button>
+      )}
 
       <div className="flex gap-2">
         <select

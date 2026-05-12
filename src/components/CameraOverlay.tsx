@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Camera, X, Zap, RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,15 +14,9 @@ export function CameraOverlay({ onCapture, onClose }: CameraOverlayProps) {
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState(false);
 
-  useEffect(() => {
-    startCamera();
-    return () => stopCamera();
-  }, []);
-
-  async function startCamera() {
+  const startCamera = useCallback(async () => {
     setLoading(true);
     try {
-      // Intentamos cámara trasera con alta resolución
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: { ideal: "environment" },
@@ -42,13 +36,19 @@ export function CameraOverlay({ onCapture, onClose }: CameraOverlayProps) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [onClose]);
 
-  function stopCamera() {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-  }
+  useEffect(() => {
+    startCamera();
+  }, [startCamera]);
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   const takePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;

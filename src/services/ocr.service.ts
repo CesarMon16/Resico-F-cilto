@@ -1,4 +1,4 @@
-import { extraerDatosTicket, type DatosTicket } from "@/lib/ocr";
+import { extraerDatosTicket, type DatosTicket } from "@/lib/ocrEngine";
 import { BaseService } from "./base.service";
 import { wrapError } from "@/lib/error-handler";
 import { supabase } from "@/integrations/supabase/client";

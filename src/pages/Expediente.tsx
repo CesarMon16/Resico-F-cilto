@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, Loader2, Trash2, ImagePlus, Sparkles, Check, AlertCircle, ExternalLink, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { MESES_ES } from "@/lib/fiscal";
 import { toast } from "sonner";
-import { extraerDatosTicket, type DatosTicket } from "@/lib/ocr";
+import { procesarImagenTicket, type OCRResult } from "@/lib/ocrEngine";
 import { CameraOverlay } from "@/components/CameraOverlay";
 
 type Ticket = {
@@ -26,13 +26,13 @@ export default function Expediente() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<{ path: string; data: DatosTicket } | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<{ path: string; data: OCRResult } | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
 
   const folder = user ? `${user.id}/${anio}-${String(mes).padStart(2, "0")}` : "";
 
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     const { data, error } = await supabase.storage.from("tickets").list(folder, {
@@ -62,12 +62,11 @@ export default function Expediente() {
     );
     setTickets(items);
     setLoading(false);
-  };
+  }, [user, folder]);
 
   useEffect(() => {
     cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, mes, anio]);
+  }, [cargar]);
 
   const subir = async (files: FileList | File[] | null) => {
     if (!files || !user) return;
@@ -109,7 +108,7 @@ export default function Expediente() {
       const blob = await response.blob();
       const file = new File([blob], ticket.name, { type: blob.type });
       
-      const data = await extraerDatosTicket(file);
+      const data = await procesarImagenTicket(file);
       setAnalysisResult({ path: ticket.path, data });
       toast.success("¡Análisis completado!");
     } catch (err: any) {
@@ -208,14 +207,14 @@ export default function Expediente() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Monto detectado</p>
-              <p className="text-xl font-extrabold text-primary">${analysisResult.data.monto?.toLocaleString() ?? "???"}</p>
+              <p className="text-xl font-extrabold text-primary">${analysisResult.data.monto_detectado.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Confianza</p>
               <div className="flex items-center gap-1 mt-1">
-                {analysisResult.data.confianza === "alta" ? (
+                {analysisResult.data.confidence_score >= 0.9 ? (
                   <span className="flex items-center gap-1 text-xs font-bold text-green-600">
-                    <Check className="h-3 w-3" /> Alta
+                    <Check className="h-3 w-3" /> Alta ({Math.round(analysisResult.data.confidence_score * 100)}%)
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-xs font-bold text-yellow-600">
@@ -226,13 +225,15 @@ export default function Expediente() {
             </div>
           </div>
 
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Concepto sugerido</p>
-            <p className="text-sm font-semibold">{analysisResult.data.descripcion}</p>
-          </div>
+          {analysisResult.data.rfc_emisor && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">RFC Emisor</p>
+              <p className="text-sm font-semibold">{analysisResult.data.rfc_emisor}</p>
+            </div>
+          )}
 
           <button
-            onClick={() => navigate("/registrar/gasto", { state: { monto: analysisResult.data.monto, descripcion: analysisResult.data.descripcion } })}
+            onClick={() => navigate("/registrar/gasto", { state: { monto: analysisResult.data.monto_detectado, descripcion: `Gasto detectado: ${analysisResult.data.rfc_emisor || "Ticket"}` } })}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary p-3 font-bold text-primary-foreground shadow-md active:scale-[0.98]"
           >
             <Plus className="h-5 w-5" /> Registrar como gasto
