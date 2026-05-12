@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Navigate, useLocation } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle, ArrowLeft } from "lucide-react";
+import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
