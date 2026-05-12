@@ -31,8 +31,8 @@ export function formatMXN(n: number): string {
 }
 
 /** Dado un total que ya incluye IVA, devuelve subtotal e IVA */
-export function desglosarIVA(total: number): { subtotal: number; iva: number } {
-  const subtotal = total / (1 + IVA_RATE);
+export function desglosarIVA(total: number, ivaRate: number = 0.16): { subtotal: number; iva: number } {
+  const subtotal = total / (1 + ivaRate);
   const iva = total - subtotal;
   return {
     subtotal: Math.round(subtotal * 100) / 100,
@@ -40,9 +40,9 @@ export function desglosarIVA(total: number): { subtotal: number; iva: number } {
   };
 }
 
-/** Dado un subtotal, devuelve total con IVA al 16% */
-export function aplicarIVA(subtotal: number): { iva: number; total: number } {
-  const iva = subtotal * IVA_RATE;
+/** Dado un subtotal, devuelve total con IVA */
+export function aplicarIVA(subtotal: number, ivaRate: number = 0.16): { iva: number; total: number } {
+  const iva = subtotal * ivaRate;
   return {
     iva: Math.round(iva * 100) / 100,
     total: Math.round((subtotal + iva) * 100) / 100,
@@ -89,7 +89,7 @@ export interface ResumenFiscal {
   totalImpuestos: number;       // ISR + max(IVA a pagar, 0)
 }
 
-export function calcularResumen(movimientos: Movimiento[]): ResumenFiscal {
+export function calcularResumen(movimientos: Movimiento[], ivaRate: number = 0.16): ResumenFiscal {
   let ingresosTotal = 0;
   let ingresosSubtotal = 0;
   let ivaCobrado = 0;
@@ -100,7 +100,7 @@ export function calcularResumen(movimientos: Movimiento[]): ResumenFiscal {
   for (const m of movimientos) {
     const monto = Number(m.monto) || 0;
     const conFactura = m.con_factura !== false;
-    const { subtotal, iva } = desglosarIVA(monto);
+    const { subtotal, iva } = desglosarIVA(monto, ivaRate);
 
     if (m.tipo === "INGRESO") {
       ingresosTotal += monto;

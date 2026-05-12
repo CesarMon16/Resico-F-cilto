@@ -14,7 +14,7 @@ export type AccionAuditoria =
   | "CREDITO_SOLICITADO"
   | "TICKET_SUBIDO";
 
-export async function auditLog(accion: AccionAuditoria, metadata: Record<string, any> = {}) {
+export async function auditLog(accion: AccionAuditoria, metadata: Record<string, unknown> = {}) {
   try {
     const { data: u } = await supabase.auth.getUser();
     const usuario_id = u.user?.id;

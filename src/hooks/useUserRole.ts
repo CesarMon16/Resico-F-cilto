@@ -23,7 +23,7 @@ export function useUserRole() {
         .select("role")
         .eq("user_id", user.id);
       if (cancelled) return;
-      setRoles((data ?? []).map((r: any) => r.role as AppRole));
+      setRoles((data ?? []).map((r: { role: AppRole }) => r.role));
       setLoading(false);
     })();
     return () => { cancelled = true; };

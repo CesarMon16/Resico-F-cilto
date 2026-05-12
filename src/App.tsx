@@ -26,6 +26,7 @@ import Creditos from "./pages/Creditos";
 import Contador from "./pages/Contador";
 import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -35,7 +36,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<Auth />} />
@@ -56,6 +57,10 @@ const App = () => (
                     <Route element={<RoleRoute allow={["CONTADOR", "ADMIN"]} />}>
                       <Route path="/contador" element={<Contador />} />
                       <Route path="/contador/:clienteId" element={<ContadorCliente />} />
+                    </Route>
+                    {/* Ruta de Administrador */}
+                    <Route element={<RoleRoute allow={["ADMIN"]} />}>
+                      <Route path="/admin" element={<AdminDashboard />} />
                     </Route>
                     <Route path="/historial-fiscal" element={<HistorialFiscal />} />
                     <Route path="/perfil" element={<Perfil />} />

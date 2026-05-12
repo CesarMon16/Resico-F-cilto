@@ -10,12 +10,18 @@ import { EmptyState } from "@/components/EmptyState";
 
 const HOY = new Date();
 
+interface PerfilCliente {
+  nombre: string | null;
+  rfc: string | null;
+  correo: string | null;
+}
+
 export default function ContadorCliente() {
   const { clienteId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isContador, loading: lr } = useUserRole();
-  const [perfil, setPerfil] = useState<any>(null);
+  const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
   const [movs, setMovs] = useState<(Movimiento & { id: string; descripcion: string | null })[]>([]);
   const [mes, setMes] = useState(HOY.getMonth() + 1);
   const [anio, setAnio] = useState(HOY.getFullYear());
@@ -41,7 +47,7 @@ export default function ContadorCliente() {
       ]);
       if (cancel) return;
       setPerfil(p);
-      setMovs((t ?? []) as any);
+      setMovs((t ?? []) as (Movimiento & { id: string; descripcion: string | null })[]);
       setLoading(false);
     })();
     return () => { cancel = true; };

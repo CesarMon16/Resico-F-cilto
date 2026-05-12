@@ -37,8 +37,8 @@ export default function Auth() {
         if (error) throw error;
         toast.success("¡Hola de nuevo!");
       }
-    } catch (err: any) {
-      const msg = err?.message ?? "Algo salió mal";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Algo salió mal";
       if (msg.includes("Invalid login")) toast.error("Correo o contraseña incorrectos");
       else if (msg.includes("already registered")) toast.error("Este correo ya está registrado");
       else toast.error(msg);

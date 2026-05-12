@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Briefcase, FileText, Phone, Store, User, UserPlus, Trash2, TrendingUp, TrendingDown, Camera, HandCoins, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -21,9 +21,7 @@ export function UserProfileView() {
   const [emailContador, setEmailContador] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { cargarContador(); /* eslint-disable-next-line */ }, [user]);
-
-  async function cargarContador() {
+  const cargarContador = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("contador_clientes")
@@ -35,7 +33,9 @@ export function UserProfileView() {
     const { data: p } = await supabase
       .from("profiles").select("nombre, correo").eq("id", data.contador_id).maybeSingle();
     setContador({ id: data.id, nombre: p?.nombre ?? "Contador", correo: p?.correo ?? null });
-  }
+  }, [user]);
+
+  useEffect(() => { cargarContador(); }, [cargarContador]);
 
   async function asignar() {
     if (!user) return;
@@ -47,8 +47,8 @@ export function UserProfileView() {
       toast.success("¡Contador asignado! 👔");
       setEmailContador("");
       cargarContador();
-    } catch (err: any) {
-      toast.error(err?.message ?? "No se pudo asignar");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "No se pudo asignar");
     } finally {
       setBusy(false);
     }
@@ -62,8 +62,8 @@ export function UserProfileView() {
       await quitarAsignacion(contador.id);
       toast.success("Contador removido");
       setContador(null);
-    } catch (err: any) {
-      toast.error(err?.message ?? "No se pudo quitar");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "No se pudo quitar");
     } finally {
       setBusy(false);
     }

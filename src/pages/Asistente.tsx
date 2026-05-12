@@ -94,14 +94,15 @@ export default function Asistente() {
                     <ReactMarkdown>{text}</ReactMarkdown>
                   </div>
                 )}
-                {toolParts.map((tp: any, i) => {
-                  const name = tp.type.replace("tool-", "");
-                  const ok = tp.output?.ok;
+                {toolParts.map((tp, i) => {
+                  const part = tp as { type: string; output?: { ok?: boolean; monto?: number } };
+                  const name = part.type.replace("tool-", "");
+                  const ok = part.output?.ok;
                   if (name === "registrar_ingreso" && ok) {
-                    return <p key={i} className="text-xs mt-1 opacity-80">✅ Venta guardada (${tp.output.monto})</p>;
+                    return <p key={i} className="text-xs mt-1 opacity-80">✅ Venta guardada (${part.output?.monto})</p>;
                   }
                   if (name === "registrar_gasto" && ok) {
-                    return <p key={i} className="text-xs mt-1 opacity-80">✅ Gasto guardado (${tp.output.monto})</p>;
+                    return <p key={i} className="text-xs mt-1 opacity-80">✅ Gasto guardado (${part.output?.monto})</p>;
                   }
                   return null;
                 })}

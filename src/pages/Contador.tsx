@@ -30,7 +30,8 @@ export default function Contador() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
-  const hoy = new Date();
+
+  const hoyDisplay = new Date();
 
   useEffect(() => {
     if (!user || !isContador) return;
@@ -38,80 +39,79 @@ export default function Contador() {
 
     (async () => {
       setLoading(true);
-      try {
-        const { data: asignaciones } = await supabase
-          .from("contador_clientes")
-          .select("cliente_id")
-          .eq("contador_id", user.id)
-          .eq("estatus", "ACTIVO");
+      const { data: asignaciones } = await supabase
+        .from("contador_clientes")
+        .select("cliente_id")
+        .eq("contador_id", user.id)
+        .eq("estatus", "ACTIVO");
 
-        const ids = (asignaciones ?? []).map((a: any) => a.cliente_id);
-        if (ids.length === 0) {
-          if (!cancelled) setClientes([]);
-          return;
-        }
+      const ids = (asignaciones ?? []).map((a: { cliente_id: string }) => a.cliente_id);
+      if (ids.length === 0) {
+        if (!cancelled) { setClientes([]); setLoading(false); }
+        return;
+      }
 
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, nombre, rfc, correo")
-          .in("id", ids);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, nombre, rfc, correo")
+        .in("id", ids);
 
-        const start = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
-        const semana = new Date(); semana.setDate(semana.getDate() - 7);
-        const semanaStr = semana.toISOString().slice(0, 10);
+      const hoy = new Date();
+      const start = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
+      const semana = new Date(); semana.setDate(semana.getDate() - 7);
+      const semanaStr = semana.toISOString().slice(0, 10);
 
-        const { data: txs } = await supabase
-          .from("transacciones")
-          .select("usuario_id, tipo, monto, fecha, con_factura")
-          .in("usuario_id", ids)
-          .gte("fecha", start);
+      const { data: txs } = await supabase
+        .from("transacciones")
+        .select("usuario_id, tipo, monto, fecha, con_factura")
+        .in("usuario_id", ids)
+        .gte("fecha", start);
 
-        const byUser = new Map<string, Movimiento[]>();
-        const ultimoByUser = new Map<string, string>();
-        const semanaByUser = new Map<string, number>();
-        (txs ?? []).forEach((t: any) => {
-          const arr = byUser.get(t.usuario_id) ?? [];
-          arr.push({ tipo: t.tipo, monto: Number(t.monto), con_factura: t.con_factura, fecha: t.fecha });
-          byUser.set(t.usuario_id, arr);
-          const prev = ultimoByUser.get(t.usuario_id);
-          if (!prev || t.fecha > prev) ultimoByUser.set(t.usuario_id, t.fecha);
-          if (t.fecha >= semanaStr) semanaByUser.set(t.usuario_id, (semanaByUser.get(t.usuario_id) ?? 0) + 1);
-        });
+      const byUser = new Map<string, Movimiento[]>();
+      const ultimoByUser = new Map<string, string>();
+      const semanaByUser = new Map<string, number>();
+      (txs ?? []).forEach((t: { usuario_id: string; tipo: string; monto: number | string; fecha: string; con_factura: boolean | null }) => {
+        const arr = byUser.get(t.usuario_id) ?? [];
+        arr.push({ tipo: t.tipo, monto: Number(t.monto), con_factura: t.con_factura, fecha: t.fecha });
+        byUser.set(t.usuario_id, arr);
+        const prev = ultimoByUser.get(t.usuario_id);
+        if (!prev || t.fecha > prev) ultimoByUser.set(t.usuario_id, t.fecha);
+        if (t.fecha >= semanaStr) semanaByUser.set(t.usuario_id, (semanaByUser.get(t.usuario_id) ?? 0) + 1);
+      });
 
-        const rows: ClienteRow[] = ids.map((id) => {
-          const p = (profiles ?? []).find((x: any) => x.id === id) as any;
-          const r = calcularResumen(byUser.get(id) ?? []);
-          return {
-            cliente_id: id,
-            nombre: p?.nombre ?? "Cliente",
-            rfc: p?.rfc ?? null,
-            correo: p?.correo ?? null,
-            ingresos: r.ingresosTotal,
-            gastos: r.gastosTotal,
-            isr: r.isr,
-            ultimoMov: ultimoByUser.get(id) ?? null,
-            movsSemana: semanaByUser.get(id) ?? 0,
-          };
-        });
+      const rows: ClienteRow[] = ids.map((id) => {
+        const p = (profiles ?? []).find((x: { id: string }) => x.id === id) as { id: string; nombre: string | null; rfc: string | null; correo: string | null } | undefined;
+        const r = calcularResumen(byUser.get(id) ?? []);
+        return {
+          cliente_id: id,
+          nombre: p?.nombre ?? "Cliente",
+          rfc: p?.rfc ?? null,
+          correo: p?.correo ?? null,
+          ingresos: r.ingresosTotal,
+          gastos: r.gastosTotal,
+          isr: r.isr,
+          ultimoMov: ultimoByUser.get(id) ?? null,
+          movsSemana: semanaByUser.get(id) ?? 0,
+        };
+      });
 
-        if (!cancelled) setClientes(rows);
-      } catch (err) {
-        console.error("[Contador] error cargando clientes", err);
-        if (!cancelled) setClientes([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        setClientes(rows);
+        setLoading(false);
       }
     })();
 
     return () => { cancelled = true; };
   }, [user, isContador]);
 
-  // ⚠️ TODOS los hooks deben declararse ANTES de cualquier return condicional
   const enrich = (c: ClienteRow) => {
     const sinMovs30 = !c.ultimoMov || (Date.now() - new Date(c.ultimoMov + "T00:00:00").getTime()) / 86400000 > 30;
     const gastosAltos = c.gastos > c.ingresos && c.gastos > 0;
     return { sinMovs30, gastosAltos };
   };
+
+  const activosSemana = clientes.filter((c) => c.movsSemana > 0).length;
+  const sinActividad30 = clientes.filter((c) => enrich(c).sinMovs30).length;
 
   const filtrados = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -131,7 +131,6 @@ export default function Contador() {
     });
   }, [clientes, q, filtro]);
 
-  // Returns condicionales DESPUÉS de declarar todos los hooks
   if (loadingRole) return <SpinnerInline />;
 
   if (!isContador) {
@@ -151,15 +150,12 @@ export default function Contador() {
     );
   }
 
-  const activosSemana = clientes.filter((c) => c.movsSemana > 0).length;
-  const sinActividad30 = clientes.filter((c) => enrich(c).sinMovs30).length;
-
   return (
     <div className="px-4 pt-6 pb-32 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold">👔 Mis clientes</h1>
-          <p className="text-xs text-muted-foreground font-semibold">{MESES_ES[hoy.getMonth()]} {hoy.getFullYear()}</p>
+          <p className="text-xs text-muted-foreground font-semibold">{MESES_ES[hoyDisplay.getMonth()]} {hoyDisplay.getFullYear()}</p>
         </div>
       </div>
 

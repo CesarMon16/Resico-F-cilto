@@ -25,10 +25,20 @@ export function useResumenMes(mes: number, anio: number) {
         .gte("fecha", inicio)
         .lte("fecha", fin)
         .order("fecha", { ascending: false });
+      const { data: config } = await supabase
+        .from("configuracion_sistema")
+        .select("iva_rate")
+        .eq("id", 1)
+        .single();
+        
+      // Si la tabla no existe aún, config será null y usamos 16% por defecto
+      const ivaRate = config?.iva_rate ? Number(config.iva_rate) : 0.16;
+
       if (cancel) return;
-      const m = (data ?? []) as any[];
-      setMovs(m);
-      setResumen(calcularResumen(m));
+      type TxRow = { id: string; tipo: string; monto: number; fecha: string; con_factura: boolean | null; descripcion: string | null };
+      const m = (data ?? []) as TxRow[];
+      setMovs(m as (Movimiento & { id: string })[]);
+      setResumen(calcularResumen(m as Movimiento[], ivaRate));
       setLoading(false);
     })();
     return () => { cancel = true; };

@@ -10,9 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
-import { calcularAcumuladoAnual, porcentajeConsumoResico } from "@/lib/fiscalEngine";
-import { LIMITE_ANUAL_RESICO } from "@/lib/constants";
-import { Progress } from "@/components/ui/progress";
 
 function saludo() {
   const h = new Date().getHours();
@@ -47,13 +44,13 @@ export default function Dashboard() {
         .order("fecha", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(500);
-      setMovs((data ?? []) as any);
+      setMovs((data ?? []) as (Movimiento & { id: string; descripcion: string | null })[]);
     })();
   }, [negocio]);
 
-  const { delPeriodo, recientes, resumen, acumuladoAnioActual, porcentajeTope } = useMemo(() => {
+  const { delPeriodo, recientes, resumen } = useMemo(() => {
     const inicio = `${anio}-${String(mes).padStart(2, "0")}-01`;
-    const finDate = new Date(anio, mes, 0);
+    const finDate = new Date(anio, mes, 0); // último día del mes
     const fin = `${anio}-${String(mes).padStart(2, "0")}-${String(finDate.getDate()).padStart(2, "0")}`;
     const delPeriodo = movs.filter((m) => m.fecha >= inicio && m.fecha <= fin);
     const resumen = calcularResumen(delPeriodo);
@@ -64,14 +61,7 @@ export default function Dashboard() {
       descripcion: t.descripcion ?? "",
       fecha: new Date(t.fecha + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
     }));
-    // ── Acumulado del año actual para tope RESICO ──
-    const anioActual = HOY.getFullYear();
-    const acumuladoAnioActual = calcularAcumuladoAnual(
-      movs.map((m) => ({ monto: Number(m.monto), tipo: m.tipo.toLowerCase(), fecha: m.fecha })),
-      anioActual,
-    );
-    const porcentajeTope = Math.min(porcentajeConsumoResico(acumuladoAnioActual), 100);
-    return { delPeriodo, recientes, resumen, acumuladoAnioActual, porcentajeTope };
+    return { delPeriodo, recientes, resumen };
   }, [movs, mes, anio]);
 
   if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
@@ -128,35 +118,6 @@ export default function Dashboard() {
       </div>
 
       <SummaryCard ingresos={resumen.ingresosTotal} gastos={resumen.gastosTotal} periodo={periodoLabel} />
-
-      {/* ── Tope Anual RESICO ── */}
-      <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-bold">Tope Anual RESICO</p>
-          <p className={`text-xs font-semibold ${
-            porcentajeTope >= 90 ? "text-destructive" : "text-muted-foreground"
-          }`}>
-            {porcentajeTope.toFixed(1)}%
-          </p>
-        </div>
-        <Progress
-          value={porcentajeTope}
-          className={`h-3 ${
-            porcentajeTope >= 90
-              ? "[&>div]:bg-red-500"
-              : "[&>div]:bg-primary"
-          }`}
-        />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>{formatMXN(acumuladoAnioActual)} acumulado</span>
-          <span>límite {formatMXN(LIMITE_ANUAL_RESICO)}</span>
-        </div>
-        {porcentajeTope >= 90 && (
-          <p className="text-xs text-destructive font-semibold">
-            ⚠️ Atención: estás cerca del límite. Consulta a tu contador.
-          </p>
-        )}
-      </div>
 
       <div>
         <h2 className="mb-3 font-bold text-lg">¿Qué hiciste hoy?</h2>

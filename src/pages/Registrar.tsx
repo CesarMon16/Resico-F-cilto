@@ -1,11 +1,13 @@
-import { useParams, useNavigate, Navigate } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, AlertTriangle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useParams, useNavigate, Navigate, useLocation } from "react-router-dom";
+import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { crearTransaccion } from "@/services/transacciones.service";
 import { handleError } from "@/lib/errors";
+import { extraerDatosTicket, type DatosTicket } from "@/lib/ocr";
+import { CameraOverlay } from "@/components/CameraOverlay";
 import { supabase } from "@/integrations/supabase/client";
 import { calcularAcumuladoAnual, validarTopeResico } from "@/lib/fiscalEngine";
 import { LIMITE_ANUAL_RESICO } from "@/lib/constants";
@@ -22,19 +24,26 @@ import {
 export default function Registrar() {
   const { tipo } = useParams<{ tipo: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { negocio, loading: negocioLoading } = useNegocio();
   const isIngreso = tipo === "ingreso";
-
-  const [monto, setMonto] = useState("");
-  const [descripcion, setDescripcion] = useState("");
+  
+  // Pre-llenar si viene de Expediente
+  const initialData = location.state as { monto?: number; descripcion?: string } | null;
+  
+  const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : "");
+  const [descripcion, setDescripcion] = useState(initialData?.descripcion || "");
   const [busy, setBusy] = useState(false);
-  const [touched, setTouched] = useState({ monto: false, descripcion: false });
-
-  // ── Estado del diálogo de límite excedido ──
+  const [analyzing, setAnalyzing] = useState(false);
+  const [ocrStep, setOcrStep] = useState<string>("");
+  const [preview, setPreview] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<DatosTicket | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  
+  const [touched, setTouched] = useState({ monto: !!initialData?.monto, descripcion: !!initialData?.descripcion });
   const [limiteExcedidoOpen, setLimiteExcedidoOpen] = useState(false);
-
-  // ── Acumulado anual (solo para ingresos) ──
   const [acumuladoAnual, setAcumuladoAnual] = useState(0);
 
   useEffect(() => {
@@ -79,13 +88,13 @@ export default function Registrar() {
     return "";
   })();
 
-  const formValido =
-    !montoError && !descError && monto.trim() !== "" && montoNum > 0;
+  const formValido = !montoError && !descError && monto.trim() !== "" && montoNum > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ monto: true, descripcion: true });
     if (!formValido) return;
+
     if (!user || !negocio) {
       toast.error("Espera, estamos preparando tu negocio");
       return;
@@ -93,7 +102,6 @@ export default function Registrar() {
 
     // ── Validación de tope anual RESICO (solo aplica a ingresos) ──
     if (isIngreso && !validarTopeResico(acumuladoAnual, montoNum)) {
-      // Bloquear la mutación y mostrar diálogo de restricción
       setLimiteExcedidoOpen(true);
       return;
     }
@@ -124,33 +132,57 @@ export default function Registrar() {
     }
   };
 
-  // OCR simulado
-  const simularOCR = (file: File) => {
-    const m = file.name.match(/(\d+(?:[.,]\d{1,2})?)/);
-    let sugerido =
-      m
-        ? Number(m[1].replace(",", "."))
-        : Math.round((50 + Math.random() * 950) * 100) / 100;
-    if (!Number.isFinite(sugerido) || sugerido <= 0) sugerido = 100;
-    setMonto(String(sugerido));
-    setTouched((t) => ({ ...t, monto: true }));
-    if (!descripcion) setDescripcion("Ticket escaneado");
-    toast("Sugerencia desde la foto. Revisa el monto antes de guardar 👀");
+  const procesarOCR = async (file: File) => {
+    setShowCamera(false);
+    setPreview(URL.createObjectURL(file));
+    setAnalyzing(true);
+    setOcrResult(null);
+    
+    try {
+      setOcrStep("Escaneando imagen...");
+      await new Promise(r => setTimeout(r, 800));
+      
+      setOcrStep("Leyendo texto con IA...");
+      const datos = await extraerDatosTicket(file);
+      
+      setOcrStep("Extrayendo montos y conceptos...");
+      await new Promise(r => setTimeout(r, 600));
+
+      if (datos.monto) {
+        setMonto(String(datos.monto));
+        setTouched(t => ({ ...t, monto: true }));
+      }
+      if (datos.descripcion) {
+        setDescripcion(datos.descripcion);
+        setTouched(t => ({ ...t, descripcion: true }));
+      }
+      
+      setOcrResult(datos);
+      toast.success("¡Datos extraídos con éxito! 🧐");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("No pudimos leer el ticket: " + (err.message || "Error desconocido"));
+    } finally {
+      setAnalyzing(false);
+      setOcrStep("");
+    }
   };
 
   if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
 
   const colorFocus = isIngreso ? "focus:ring-green-400" : "focus:ring-rose-400";
-  const colorBtn = isIngreso
-    ? "bg-income text-primary-foreground"
-    : "bg-expense text-primary-foreground";
+  const colorBtn = isIngreso ? "bg-income text-primary-foreground" : "bg-expense text-primary-foreground";
 
   return (
-    <div className="px-4 pt-6 space-y-6 animate-slide-up">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-muted-foreground font-semibold"
-      >
+    <div className="px-4 pt-6 space-y-6 animate-slide-up pb-10">
+      {showCamera && (
+        <CameraOverlay 
+          onCapture={procesarOCR} 
+          onClose={() => setShowCamera(false)} 
+        />
+      )}
+
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
         <ArrowLeft className="h-5 w-5" />
         Regresar
       </button>
@@ -160,13 +192,57 @@ export default function Registrar() {
           {isIngreso ? "💰 ¿Cuánto vendiste?" : "🛒 ¿Cuánto gastaste?"}
         </h1>
         <p className="text-muted-foreground mt-1">
-          {isIngreso
-            ? "Registra lo que ganaste hoy"
-            : "Registra lo que compraste o pagaste"}
+          {isIngreso ? "Registra lo que ganaste hoy" : "Registra lo que compraste o pagaste"}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        {preview && (
+          <div className="relative group rounded-2xl overflow-hidden border-2 border-primary/20 bg-card aspect-[4/3] shadow-inner">
+            <img src={preview} alt="Ticket preview" className="w-full h-full object-cover" />
+            <button 
+              type="button"
+              onClick={() => { setPreview(null); setAnalyzing(false); setOcrResult(null); }}
+              className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full backdrop-blur-md z-10"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {analyzing && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-white text-center p-4">
+                <div className="relative mb-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                  </div>
+                </div>
+                <p className="font-bold text-lg">{ocrStep}</p>
+                <div className="w-48 h-1.5 bg-white/20 rounded-full mt-4 overflow-hidden">
+                  <div className="h-full bg-primary animate-progress-indefinite w-1/2"></div>
+                </div>
+              </div>
+            )}
+            {ocrResult && !analyzing && (
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white">
+                <div className="flex items-center gap-2">
+                  {ocrResult.confianza === "alta" ? (
+                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">
+                      <Check className="h-3 w-3" /> Confianza alta
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30">
+                      <AlertCircle className="h-3 w-3" /> Revisar datos
+                    </div>
+                  )}
+                  {ocrResult.conFactura && (
+                    <div className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">
+                      Factura detectada
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Monto ── */}
         <div>
@@ -190,6 +266,7 @@ export default function Registrar() {
                   ? "border-destructive focus:ring-destructive/40"
                   : `border-input ${colorFocus}`
               }`}
+              required
             />
           </div>
           {montoError ? (
@@ -244,36 +321,40 @@ export default function Registrar() {
         </div>
 
         {/* ── OCR (solo gastos) ── */}
-        {!isIngreso && (
-          <label className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-4 text-muted-foreground transition-colors hover:border-primary hover:text-primary cursor-pointer">
-            <Camera className="h-5 w-5" />
-            <Sparkles className="h-4 w-4" />
-            <span className="font-semibold">Detectar datos del ticket</span>
+        {!isIngreso && !preview && (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setShowCamera(true)}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border p-4 text-muted-foreground transition-colors hover:border-primary hover:text-primary bg-card/50"
+            >
+              <Camera className="h-6 w-6" />
+              <span className="font-bold text-xs">Tomar foto</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => galleryRef.current?.click()}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border p-4 text-muted-foreground transition-colors hover:border-primary hover:text-primary bg-card/50"
+            >
+              <ImagePlus className="h-6 w-6" />
+              <span className="font-bold text-xs">De galería</span>
+            </button>
             <input
+              ref={galleryRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="hidden"
-              onChange={(e) =>
-                e.target.files && e.target.files[0] && simularOCR(e.target.files[0])
-              }
+              onChange={(e) => e.target.files && e.target.files[0] && procesarOCR(e.target.files[0])}
             />
-          </label>
+          </div>
         )}
 
-        {/* ── Submit ── */}
         <button
           type="submit"
-          disabled={busy || negocioLoading || !negocio}
+          disabled={busy || analyzing || negocioLoading || !negocio}
           className={`w-full rounded-xl p-4 text-lg font-bold shadow-md transition-all active:scale-[0.98] disabled:opacity-50 ${colorBtn}`}
         >
-          {busy
-            ? "Guardando..."
-            : negocioLoading || !negocio
-            ? "Preparando..."
-            : isIngreso
-            ? "Registrar venta"
-            : "Registrar gasto"}
+          {busy ? "Guardando..." : analyzing ? "Analizando..." : negocioLoading || !negocio ? "Preparando..." : isIngreso ? "Registrar venta" : "Registrar gasto"}
         </button>
 
         {touched.monto && !formValido && (

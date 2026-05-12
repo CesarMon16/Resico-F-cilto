@@ -1,4 +1,4 @@
-import { Home, Sparkles, Clock, FileText, User, Users } from "lucide-react";
+import { Home, Sparkles, Clock, FileText, User, Users, BarChart3 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -15,9 +15,14 @@ const itemsContador = [
   { to: "/perfil", icon: User, label: "Perfil" },
 ];
 
+const itemsAdmin = [
+  { to: "/admin", icon: BarChart3, label: "Dashboard" },
+  { to: "/perfil", icon: User, label: "Perfil" },
+];
+
 export function BottomNav() {
-  const { isContador } = useUserRole();
-  const navItems = isContador ? itemsContador : itemsComerciante;
+  const { isContador, isAdmin } = useUserRole();
+  const navItems = isAdmin ? itemsAdmin : isContador ? itemsContador : itemsComerciante;
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card safe-bottom">
       <div className="mx-auto flex max-w-lg items-center justify-around py-2">
@@ -25,7 +30,7 @@ export function BottomNav() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/" || item.to === "/contador"}
+            end={item.to === "/" || item.to === "/contador" || item.to === "/admin"}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 px-3 py-1 text-xs font-semibold transition-colors ${
                 isActive ? "text-primary" : "text-muted-foreground"
