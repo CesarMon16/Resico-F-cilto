@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
-import { crearTransaccion } from "@/services/transacciones.service";
+import { TransaccionesService } from "@/services/transacciones.service";
+import { OcrService } from "@/services/ocr.service";
 import { handleError } from "@/lib/errors";
 import { procesarImagenTicket, type OCRResult } from "@/lib/ocrEngine";
 import { CameraOverlay } from "@/components/CameraOverlay";
@@ -34,10 +35,14 @@ export default function Registrar() {
   
   const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : "");
   const [descripcion, setDescripcion] = useState(initialData?.descripcion || "");
+  const [comercio, setComercio] = useState("");
+  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
+  
   const [busy, setBusy] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [ocrStep, setOcrStep] = useState<string>("");
   const [preview, setPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -108,20 +113,23 @@ export default function Registrar() {
 
     setBusy(true);
     try {
-      const r = await crearTransaccion({
-        usuario_id: user.id,
-        negocio_id: negocio.id,
+      const txService = new TransaccionesService(user.id, negocio.id);
+      
+      const r = await txService.crear({
         tipo: isIngreso ? "INGRESO" : "GASTO",
         monto: montoNum,
-        descripcion: descripcion.trim() || null,
+        descripcion: descripcion.trim(),
+        fecha: fecha,
+        origen: ocrResult ? "OCR" : "manual",
       });
+
       if (r.offline) {
-        toast.success("Guardado sin internet. Lo enviaremos cuando vuelvas en línea 📶");
+        toast.success("¡Guardado! Lo enviaremos al sistema en cuanto tengas internet 📶");
       } else {
         toast.success(
           isIngreso
-            ? `¡Listo! Registraste una venta de $${montoNum.toLocaleString("es-MX")}`
-            : `¡Listo! Registraste un gasto de $${montoNum.toLocaleString("es-MX")}`,
+            ? `¡Listo! Registramos tu venta por $${montoNum.toLocaleString("es-MX")}`
+            : `¡Listo! Tu gasto fue guardado correctamente`,
         );
       }
       navigate("/");
@@ -135,34 +143,36 @@ export default function Registrar() {
   const procesarOCR = async (file: File) => {
     setShowCamera(false);
     setPreview(URL.createObjectURL(file));
+    setSelectedFile(file);
     setAnalyzing(true);
     setOcrResult(null);
     
     try {
-      setOcrStep("Escaneando imagen...");
-      await new Promise(r => setTimeout(r, 800));
-      
+      setOcrStep("Analizando imagen con IA...");
       const datos = await procesarImagenTicket(file);
       
-      setOcrStep("Extrayendo montos y conceptos...");
+      setOcrStep("Extrayendo montos...");
       await new Promise(r => setTimeout(r, 600));
 
       if (datos.monto_detectado) {
-        setMonto(String(datos.monto_detectado));
+        setMonto(String(datos.monto_detectado.toFixed(2)));
         setTouched(t => ({ ...t, monto: true }));
       }
       
-      // Para gastos, sugerimos el RFC si existe
-      if (!isIngreso && datos.rfc_emisor) {
-        setDescripcion(`Gasto RFC: ${datos.rfc_emisor}`);
+      if (datos.rfc_emisor) {
+        setDescripcion(`Gasto detectado (RFC: ${datos.rfc_emisor})`);
         setTouched(t => ({ ...t, descripcion: true }));
       }
       
+      if (datos.fecha_emision) {
+        setFecha(datos.fecha_emision.split("T")[0]);
+      }
+      
       setOcrResult(datos);
-      toast.success("¡Datos extraídos con éxito! 🧐");
+      toast.success("¡Leímos tu ticket con éxito! 🧐");
     } catch (err: any) {
       console.error(err);
-      toast.error("No pudimos leer el ticket: " + (err.message || "Error desconocido"));
+      toast.error("No pudimos leer el ticket. Puedes escribir los datos tú mismo.");
     } finally {
       setAnalyzing(false);
       setOcrStep("");
@@ -223,15 +233,16 @@ export default function Registrar() {
               </div>
             )}
             {ocrResult && !analyzing && (
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white">
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-4 pt-10 text-white">
+                <p className="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">Detectamos esto:</p>
                 <div className="flex items-center gap-2">
                   {ocrResult.confidence_score >= 0.9 ? (
-                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">
-                      <Check className="h-3 w-3" /> Confianza alta ({Math.round(ocrResult.confidence_score * 100)}%)
+                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30 font-bold">
+                      <Check className="h-3 w-3" /> Todo parece correcto ({Math.round(ocrResult.confidence_score * 100)}%)
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30">
-                      <AlertCircle className="h-3 w-3" /> Revisar datos
+                    <div className="flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30 font-bold">
+                      <AlertCircle className="h-3 w-3" /> Revisa los datos
                     </div>
                   )}
                   {ocrResult.rfc_emisor && (
@@ -355,7 +366,21 @@ export default function Registrar() {
           disabled={busy || analyzing || negocioLoading || !negocio}
           className={`w-full rounded-xl p-4 text-lg font-bold shadow-md transition-all active:scale-[0.98] disabled:opacity-50 ${colorBtn}`}
         >
-          {busy ? "Guardando..." : analyzing ? "Analizando..." : negocioLoading || !negocio ? "Preparando..." : isIngreso ? "Registrar venta" : "Registrar gasto"}
+          {busy ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" /> Guardando...
+            </span>
+          ) : analyzing ? (
+            "Analizando ticket..."
+          ) : negocioLoading || !negocio ? (
+            "Preparando..."
+          ) : isIngreso ? (
+            "Guardar venta"
+          ) : ocrResult ? (
+            "Confirmar y guardar gasto"
+          ) : (
+            "Guardar gasto"
+          )}
         </button>
 
         {touched.monto && !formValido && (
