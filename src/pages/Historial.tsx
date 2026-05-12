@@ -23,7 +23,7 @@ export default function Historial() {
       .limit(200)
       .then(({ data }) => {
         setItems(
-          (data ?? []).map((t: any) => ({
+          (data ?? []).map((t: { id: string; tipo: string; monto: number | string; descripcion: string | null; fecha: string }) => ({
             id: t.id,
             tipo: t.tipo,
             monto: Number(t.monto),
