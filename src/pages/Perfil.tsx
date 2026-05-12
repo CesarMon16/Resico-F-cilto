@@ -8,6 +8,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { UserProfileView } from "@/components/perfil/UserProfileView";
 import { AccountantProfileView } from "@/components/perfil/AccountantProfileView";
 import { AdminProfileView } from "@/components/perfil/AdminProfileView";
+import { DocumentosGrid } from "@/components/perfil/DocumentosGrid";
+import { SectionTitle } from "@/components/perfil/MenuItem";
 
 export default function Perfil() {
   const navigate = useNavigate();
@@ -77,8 +79,15 @@ export default function Perfil() {
       ) : isContador ? (
         <AccountantProfileView />
       ) : (
-        <UserProfileView />
-      )}
+        <>
+          <UserProfileView />
+          <div className="mt-8 space-y-4">
+            <SectionTitle>Mis documentos</SectionTitle>
+            <DocumentosGrid />
+          </div>
+        </>
+      )
+      }
 
       <button
         onClick={handleLogout}
@@ -88,8 +97,7 @@ export default function Perfil() {
         Cerrar sesión
       </button>
 
-      {/* spacer dummy para que tsc no se queje del import unused */}
-      <span className="hidden"><ChevronRight className="h-0 w-0" /></span>
+
     </div>
   );
 }

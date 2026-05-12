@@ -109,7 +109,7 @@ export default function HistorialFiscal() {
       <div>
         <h1 className="text-2xl font-extrabold">📚 Mi historial fiscal</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Aquí puedes ver, mes por mes, lo que has registrado en tu negocio.
+          Aquí puedes ver, mes por mes, lo que has registrado en tu actividad.
         </p>
       </div>
 

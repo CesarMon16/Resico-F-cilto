@@ -121,7 +121,7 @@ export function UserProfileView() {
       <div className="space-y-2">
         <SectionTitle>Mi información</SectionTitle>
         <MenuItem icon={<User className="h-5 w-5" />} label="Mi perfil fiscal" to="/perfil/fiscal" hint="RFC, régimen, datos del SAT" />
-        <MenuItem icon={<Store className="h-5 w-5" />} label="Mi negocio" to="/preparar-negocio" hint={negocio?.nombre_negocio ?? "Configura tu negocio"} />
+        <MenuItem icon={<Store className="h-5 w-5" />} label="Mi actividad" to="/preparar-negocio" hint={negocio?.nombre_negocio ?? "Configura tu actividad"} />
         <MenuItem icon={<BookOpen className="h-5 w-5" />} label="Mi historial fiscal" to="/historial-fiscal" hint="Mes a mes, todo en un lugar" />
         <MenuItem icon={<FileText className="h-5 w-5" />} label="Mis documentos" to="/expediente" hint="Tickets y comprobantes" />
         <MenuItem icon={<HandCoins className="h-5 w-5" />} label="Créditos y apoyos" to="/creditos" />
