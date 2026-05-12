@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
-import { TrendingUp, TrendingDown, Bell } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
+import { TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import { SummaryCard } from "@/components/SummaryCard";
 import { QuickActionCard } from "@/components/QuickActionCard";
 import { TransactionItem, Transaction } from "@/components/TransactionItem";
+import { Avisos } from "@/components/dashboard/Avisos";
+import { SaludFinanciera } from "@/components/dashboard/SaludFinanciera";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
-import { apiMock } from "@/lib/mockData";
+import { calcularAcumuladoAnual, porcentajeConsumoResico } from "@/lib/fiscalEngine";
+import { LIMITE_ANUAL_RESICO } from "@/lib/constants";
+import { Progress } from "@/components/ui/progress";
+
+function saludo() {
+  const h = new Date().getHours();
+  if (h < 12) return "Buenos días";
+  if (h < 19) return "Buenas tardes";
+  return "Buenas noches";
+}
 
 const HOY = new Date();
 
@@ -27,15 +38,22 @@ export default function Dashboard() {
   }, [user]);
 
   useEffect(() => {
+    if (!negocio) return;
     (async () => {
-      const data = await apiMock.getTransactions();
-      setMovs(data as any);
+      const { data } = await supabase
+        .from("transacciones")
+        .select("id, tipo, monto, descripcion, fecha, con_factura")
+        .eq("negocio_id", negocio.id)
+        .order("fecha", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(500);
+      setMovs((data ?? []) as any);
     })();
-  }, []);
+  }, [negocio]);
 
-  const { delPeriodo, recientes, resumen } = useMemo(() => {
+  const { delPeriodo, recientes, resumen, acumuladoAnioActual, porcentajeTope } = useMemo(() => {
     const inicio = `${anio}-${String(mes).padStart(2, "0")}-01`;
-    const finDate = new Date(anio, mes, 0); // último día del mes
+    const finDate = new Date(anio, mes, 0);
     const fin = `${anio}-${String(mes).padStart(2, "0")}-${String(finDate.getDate()).padStart(2, "0")}`;
     const delPeriodo = movs.filter((m) => m.fecha >= inicio && m.fecha <= fin);
     const resumen = calcularResumen(delPeriodo);
@@ -46,7 +64,14 @@ export default function Dashboard() {
       descripcion: t.descripcion ?? "",
       fecha: new Date(t.fecha + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
     }));
-    return { delPeriodo, recientes, resumen };
+    // ── Acumulado del año actual para tope RESICO ──
+    const anioActual = HOY.getFullYear();
+    const acumuladoAnioActual = calcularAcumuladoAnual(
+      movs.map((m) => ({ monto: Number(m.monto), tipo: m.tipo.toLowerCase(), fecha: m.fecha })),
+      anioActual,
+    );
+    const porcentajeTope = Math.min(porcentajeConsumoResico(acumuladoAnioActual), 100);
+    return { delPeriodo, recientes, resumen, acumuladoAnioActual, porcentajeTope };
   }, [movs, mes, anio]);
 
   if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
@@ -58,14 +83,27 @@ export default function Dashboard() {
     <div className="px-4 pt-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-muted-foreground text-sm">¡Hola! 👋</p>
+          <p className="text-muted-foreground text-sm">{saludo()} 👋</p>
           <h1 className="text-2xl font-extrabold">{nombre || "Bienvenido"}</h1>
         </div>
-        <button className="relative rounded-full bg-muted p-2.5 transition-colors hover:bg-border">
-          <Bell className="h-5 w-5 text-foreground" />
-          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-secondary border-2 border-card" />
-        </button>
+        <Avisos />
       </div>
+
+      {resumen && <SaludFinanciera resumen={resumen} />}
+
+      <Link
+        to="/declaracion"
+        className="flex items-center justify-between rounded-2xl bg-primary p-4 text-primary-foreground shadow-md active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-3">
+          <Sparkles className="h-6 w-6" />
+          <div>
+            <p className="font-extrabold">Revisar mi declaración</p>
+            <p className="text-xs opacity-80">Te guío paso a paso</p>
+          </div>
+        </div>
+        <span>›</span>
+      </Link>
 
       {/* Filtros mes/año */}
       <div className="flex gap-2">
@@ -91,12 +129,54 @@ export default function Dashboard() {
 
       <SummaryCard ingresos={resumen.ingresosTotal} gastos={resumen.gastosTotal} periodo={periodoLabel} />
 
+      {/* ── Tope Anual RESICO ── */}
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold">Tope Anual RESICO</p>
+          <p className={`text-xs font-semibold ${
+            porcentajeTope >= 90 ? "text-destructive" : "text-muted-foreground"
+          }`}>
+            {porcentajeTope.toFixed(1)}%
+          </p>
+        </div>
+        <Progress
+          value={porcentajeTope}
+          className={`h-3 ${
+            porcentajeTope >= 90
+              ? "[&>div]:bg-red-500"
+              : "[&>div]:bg-primary"
+          }`}
+        />
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>{formatMXN(acumuladoAnioActual)} acumulado</span>
+          <span>límite {formatMXN(LIMITE_ANUAL_RESICO)}</span>
+        </div>
+        {porcentajeTope >= 90 && (
+          <p className="text-xs text-destructive font-semibold">
+            ⚠️ Atención: estás cerca del límite. Consulta a tu contador.
+          </p>
+        )}
+      </div>
+
       <div>
         <h2 className="mb-3 font-bold text-lg">¿Qué hiciste hoy?</h2>
         <div className="grid grid-cols-2 gap-4">
           <QuickActionCard icon={TrendingUp} label="Hoy vendí" to="/registrar/ingreso" variant="income" />
           <QuickActionCard icon={TrendingDown} label="Hoy compré" to="/registrar/gasto" variant="expense" />
         </div>
+        <a
+          href="/expediente"
+          className="mt-3 flex items-center justify-between rounded-2xl border border-dashed border-border bg-card p-4 transition-colors hover:bg-muted"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📸</span>
+            <div>
+              <p className="font-bold">Mi expediente</p>
+              <p className="text-xs text-muted-foreground">Guarda fotos de tickets y facturas</p>
+            </div>
+          </div>
+          <span className="text-muted-foreground">›</span>
+        </a>
       </div>
 
       {/* Tarjetas fiscales */}

@@ -152,6 +152,46 @@ export function validarRFC(rfc: string): boolean {
   return /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(v);
 }
 
+/** Explicación humana del ISR estimado */
+export function explicarISR(r: ResumenFiscal): string {
+  if (r.ingresosTotal === 0) {
+    return "Como no registraste ventas en este periodo, no tienes ISR que pagar.";
+  }
+  return `Vendiste ${formatMXN(r.ingresosTotal)}. De cada peso que vendes, una pequeña parte (alrededor del ${(r.tasaISR * 100).toFixed(2)}%) se va al SAT como ISR. Por eso te tocan aproximadamente ${formatMXN(r.isr)}.`;
+}
+
+/** Explicación humana del IVA */
+export function explicarIVA(r: ResumenFiscal): string {
+  if (r.ingresosTotal === 0 && r.gastosTotal === 0) {
+    return "No hay IVA que reportar este periodo.";
+  }
+  if (r.ivaAPagar < 0) {
+    return `Pagaste más IVA en tus compras (${formatMXN(r.ivaAcreditable)}) del que cobraste en tus ventas (${formatMXN(r.ivaCobrado)}). Tienes ${formatMXN(Math.abs(r.ivaAPagar))} a tu favor.`;
+  }
+  if (r.ivaAPagar === 0) {
+    return "El IVA que cobraste y el que pagaste se compensan. No tienes IVA por pagar.";
+  }
+  return `Cobraste ${formatMXN(r.ivaCobrado)} de IVA en tus ventas. Como en tus compras pagaste ${formatMXN(r.ivaAcreditable)} de IVA con factura, te toca pagar la diferencia: ${formatMXN(r.ivaAPagar)}.`;
+}
+
+/** Etiqueta amigable de salud financiera */
+export function saludFinanciera(r: ResumenFiscal): {
+  nivel: "bien" | "atento" | "cuidado";
+  emoji: string;
+  mensaje: string;
+} {
+  if (r.ingresosTotal === 0) {
+    return { nivel: "atento", emoji: "🤔", mensaje: "Aún no registras ventas este mes" };
+  }
+  if (r.utilidad < 0) {
+    return { nivel: "cuidado", emoji: "⚠️", mensaje: "Estás gastando más de lo que vendes" };
+  }
+  if (r.utilidad > r.ingresosSubtotal * 0.3) {
+    return { nivel: "bien", emoji: "💪", mensaje: "Vas muy bien este mes" };
+  }
+  return { nivel: "atento", emoji: "👍", mensaje: "Vas avanzando, sigue así" };
+}
+
 export const MESES_ES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",

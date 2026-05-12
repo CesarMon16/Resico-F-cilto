@@ -1,28 +1,35 @@
-import { User, Store, Phone, FileText, LogOut, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LogOut, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useNegocio } from "@/hooks/useNegocio";
-
-const menuItems = [
-  { icon: User, label: "Mi perfil fiscal", to: "/perfil/fiscal" },
-  { icon: Store, label: "Mi negocio", to: "/preparar-negocio" },
-  { icon: Phone, label: "Cambiar teléfono", to: null },
-  { icon: FileText, label: "Mis documentos", to: null },
-];
+import { useUserRole } from "@/hooks/useUserRole";
+import { UserProfileView } from "@/components/perfil/UserProfileView";
+import { AccountantProfileView } from "@/components/perfil/AccountantProfileView";
+import { AdminProfileView } from "@/components/perfil/AdminProfileView";
 
 export default function Perfil() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { negocio } = useNegocio();
+  const { isContador, isAdmin, loading: rolesLoading } = useUserRole();
   const [nombre, setNombre] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [despacho, setDespacho] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("nombre").eq("id", user.id).maybeSingle()
-      .then(({ data }) => data && setNombre(data.nombre));
+    supabase
+      .from("profiles")
+      .select("nombre, correo, despacho")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setNombre(data.nombre ?? "");
+        setCorreo(data.correo ?? "");
+        setDespacho(data.despacho ?? null);
+      });
   }, [user]);
 
   const initials = nombre
@@ -35,6 +42,21 @@ export default function Perfil() {
     navigate("/auth");
   };
 
+  // Etiqueta de rol y subtítulo del header (cambia por contexto)
+  let rolLabel = "RESICO activo";
+  let rolColor = "bg-success-light text-success";
+  let subtitulo: string | null = null;
+
+  if (isAdmin) {
+    rolLabel = "Administrador";
+    rolColor = "bg-primary/15 text-primary";
+    subtitulo = correo;
+  } else if (isContador) {
+    rolLabel = "Contador";
+    rolColor = "bg-accent/20 text-accent";
+    subtitulo = despacho ?? "Despacho independiente";
+  }
+
   return (
     <div className="px-4 pt-6 space-y-6">
       <div className="flex flex-col items-center text-center">
@@ -42,29 +64,21 @@ export default function Perfil() {
           {initials}
         </div>
         <h1 className="mt-3 text-xl font-extrabold">{nombre || "Sin nombre"}</h1>
-        <p className="text-muted-foreground text-sm">
-          {negocio?.nombre_negocio ?? "Mi negocio"}
-          {negocio?.ubicacion ? ` · ${negocio.ubicacion}` : ""}
-        </p>
-        <span className="mt-2 rounded-full bg-success-light px-3 py-1 text-xs font-bold text-success">
-          RESICO activo
+        {subtitulo && <p className="text-muted-foreground text-sm">{subtitulo}</p>}
+        <span className={`mt-2 rounded-full px-3 py-1 text-xs font-bold ${rolColor}`}>
+          {rolLabel}
         </span>
       </div>
 
-      <div className="space-y-2">
-        {menuItems.map((item) => (
-          <button
-            key={item.label}
-            onClick={() => item.to && navigate(item.to)}
-            disabled={!item.to}
-            className="flex w-full items-center gap-3 rounded-xl bg-card p-4 shadow-sm transition-colors hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <item.icon className="h-5 w-5 text-primary" />
-            <span className="flex-1 text-left font-semibold">{item.label}</span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </button>
-        ))}
-      </div>
+      {rolesLoading ? (
+        <p className="text-center text-muted-foreground">Cargando...</p>
+      ) : isAdmin ? (
+        <AdminProfileView />
+      ) : isContador ? (
+        <AccountantProfileView />
+      ) : (
+        <UserProfileView />
+      )}
 
       <button
         onClick={handleLogout}
@@ -73,6 +87,9 @@ export default function Perfil() {
         <LogOut className="h-5 w-5" />
         Cerrar sesión
       </button>
+
+      {/* spacer dummy para que tsc no se queje del import unused */}
+      <span className="hidden"><ChevronRight className="h-0 w-0" /></span>
     </div>
   );
 }

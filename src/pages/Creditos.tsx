@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { Send, Info } from "lucide-react";
 import { toast } from "sonner";
+<<<<<<< HEAD
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+=======
+import { useAuth } from "@/hooks/useAuth";
+import { solicitarCredito } from "@/services/creditos.service";
+import { handleError } from "@/lib/errors";
+>>>>>>> Facilito_alpha
 
 const montos = [5000, 10000, 25000, 50000];
 
@@ -18,6 +24,7 @@ export default function Creditos() {
     }
     if (!user) return;
     setBusy(true);
+<<<<<<< HEAD
     const { error } = await supabase.from("creditos").insert({
       usuario_id: user.id,
       monto_solicitado: monto,
@@ -30,6 +37,17 @@ export default function Creditos() {
     }
     toast.success("¡Solicitud enviada! Te contactaremos pronto 🎉");
     setMonto(null);
+=======
+    try {
+      await solicitarCredito(user.id, monto);
+      toast.success("¡Solicitud enviada! Te contactaremos pronto 🎉");
+      setMonto(null);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setBusy(false);
+    }
+>>>>>>> Facilito_alpha
   };
 
   return (
