@@ -104,6 +104,24 @@ export default function Asistente() {
                   if (name === "registrar_gasto" && ok) {
                     return <p key={i} className="text-xs mt-1 opacity-80">✅ Gasto guardado (${part.output?.monto})</p>;
                   }
+                  if (part.output?.status === "REQUIRES_ACTION") {
+                    return (
+                      <div key={i} className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => enviar("Sí")}
+                          className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm active:scale-95"
+                        >
+                          Sí, tengo factura
+                        </button>
+                        <button
+                          onClick={() => enviar("No")}
+                          className="rounded-xl bg-background border border-input px-4 py-2 text-xs font-bold text-foreground shadow-sm active:scale-95"
+                        >
+                          No tengo
+                        </button>
+                      </div>
+                    );
+                  }
                   return null;
                 })}
               </div>

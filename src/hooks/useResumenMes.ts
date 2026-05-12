@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useNegocio } from "./useNegocio";
 import { calcularResumen, type Movimiento, type ResumenFiscal } from "@/lib/fiscal";
+import type { Tables } from "@/integrations/supabase/types";
 
 export function useResumenMes(mes: number, anio: number) {
   const { negocio } = useNegocio();
-  const [movs, setMovs] = useState<(Movimiento & { id: string })[]>([]);
+  const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumen, setResumen] = useState<ResumenFiscal | null>(null);
 
@@ -35,9 +36,8 @@ export function useResumenMes(mes: number, anio: number) {
       const ivaRate = config?.iva_rate ? Number(config.iva_rate) : 0.16;
 
       if (cancel) return;
-      type TxRow = { id: string; tipo: string; monto: number; fecha: string; con_factura: boolean | null; descripcion: string | null };
-      const m = (data ?? []) as TxRow[];
-      setMovs(m as (Movimiento & { id: string })[]);
+      const m = data ?? [];
+      setMovs(m);
       setResumen(calcularResumen(m as Movimiento[], ivaRate));
       setLoading(false);
     })();

@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { crearTransaccion } from "@/services/transacciones.service";
 import { handleError } from "@/lib/errors";
-import { extraerDatosTicket, type DatosTicket } from "@/lib/ocr";
+import { procesarImagenTicket, type OCRResult } from "@/lib/ocr";
 import { CameraOverlay } from "@/components/CameraOverlay";
 import { supabase } from "@/integrations/supabase/client";
 import { calcularAcumuladoAnual, validarTopeResico } from "@/lib/fiscalEngine";
@@ -38,7 +38,7 @@ export default function Registrar() {
   const [analyzing, setAnalyzing] = useState(false);
   const [ocrStep, setOcrStep] = useState<string>("");
   const [preview, setPreview] = useState<string | null>(null);
-  const [ocrResult, setOcrResult] = useState<DatosTicket | null>(null);
+  const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
   
@@ -142,18 +142,19 @@ export default function Registrar() {
       setOcrStep("Escaneando imagen...");
       await new Promise(r => setTimeout(r, 800));
       
-      setOcrStep("Leyendo texto con IA...");
-      const datos = await extraerDatosTicket(file);
+      const datos = await procesarImagenTicket(file);
       
       setOcrStep("Extrayendo montos y conceptos...");
       await new Promise(r => setTimeout(r, 600));
 
-      if (datos.monto) {
-        setMonto(String(datos.monto));
+      if (datos.monto_detectado) {
+        setMonto(String(datos.monto_detectado));
         setTouched(t => ({ ...t, monto: true }));
       }
-      if (datos.descripcion) {
-        setDescripcion(datos.descripcion);
+      
+      // Para gastos, sugerimos el RFC si existe
+      if (!isIngreso && datos.rfc_emisor) {
+        setDescripcion(`Gasto RFC: ${datos.rfc_emisor}`);
         setTouched(t => ({ ...t, descripcion: true }));
       }
       
@@ -224,18 +225,18 @@ export default function Registrar() {
             {ocrResult && !analyzing && (
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white">
                 <div className="flex items-center gap-2">
-                  {ocrResult.confianza === "alta" ? (
+                  {ocrResult.confidence_score >= 0.9 ? (
                     <div className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">
-                      <Check className="h-3 w-3" /> Confianza alta
+                      <Check className="h-3 w-3" /> Confianza alta ({Math.round(ocrResult.confidence_score * 100)}%)
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30">
                       <AlertCircle className="h-3 w-3" /> Revisar datos
                     </div>
                   )}
-                  {ocrResult.conFactura && (
+                  {ocrResult.rfc_emisor && (
                     <div className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">
-                      Factura detectada
+                      RFC: {ocrResult.rfc_emisor}
                     </div>
                   )}
                 </div>

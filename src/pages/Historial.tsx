@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNegocio } from "@/hooks/useNegocio";
 import { formatMXN } from "@/lib/fiscal";
 import { handleError } from "@/lib/errors";
+import type { Tables } from "@/integrations/supabase/types";
 
 /* ─── Tipos ─────────────────────────────────────────────────────── */
 interface Transaction {
@@ -154,7 +155,6 @@ function FilaTx({
                   Monto ($) <span className="text-destructive">*</span>
                 </span>
                 <input
-                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                   type="number"
                   inputMode="decimal"
@@ -285,7 +285,7 @@ export default function Historial() {
   const [items, setItems] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const cargar = () => {
+  const cargar = useCallback(() => {
     if (!negocio) return;
     setLoading(true);
     supabase
@@ -297,7 +297,7 @@ export default function Historial() {
       .limit(200)
       .then(({ data }) => {
         setItems(
-          (data ?? []).map((t: { id: string; tipo: string; monto: number | string; descripcion: string | null; fecha: string }) => ({
+          (data ?? []).map((t: Tables<"transacciones">) => ({
             id: t.id,
             tipo: t.tipo as "INGRESO" | "GASTO",
             monto: Number(t.monto),
@@ -311,12 +311,11 @@ export default function Historial() {
         );
         setLoading(false);
       });
-  };
+  }, [negocio]);
 
   useEffect(() => {
     cargar();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [negocio]);
+  }, [cargar]);
 
   const handleSave = async (
     id: string,

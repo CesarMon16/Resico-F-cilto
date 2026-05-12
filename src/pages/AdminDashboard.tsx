@@ -4,49 +4,24 @@ import { Users, Store, Receipt, PieChart, Settings2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminUsersList } from "@/components/admin/AdminUsersList";
 import { AdminFiscalRules } from "@/components/admin/AdminFiscalRules";
+import { useAdminMetrics } from "@/hooks/useAdminMetrics";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell,
+  PieChart as RePieChart,
+  Pie
+} from "recharts";
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    usuarios: 0,
-    negocios: 0,
-    transacciones: 0,
-  });
-  const [giros, setGiros] = useState<{ [key: string]: number }>({});
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchStats() {
-      // Ejecutamos las llamadas en paralelo para mayor rapidez
-      const [
-        { count: usuariosCount },
-        { data: negociosData, count: negociosCount },
-        { count: transaccionesCount }
-      ] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("negocios").select("giro", { count: "exact" }),
-        supabase.from("transacciones").select("*", { count: "exact", head: true })
-      ]);
-
-      // Agrupar por giro
-      const agrupado: { [key: string]: number } = {};
-      if (negociosData) {
-        negociosData.forEach((n) => {
-          const giro = n.giro || "No especificado";
-          agrupado[giro] = (agrupado[giro] || 0) + 1;
-        });
-      }
-
-      setStats({
-        usuarios: usuariosCount || 0,
-        negocios: negociosCount || 0,
-        transacciones: transaccionesCount || 0,
-      });
-      setGiros(agrupado);
-      setLoading(false);
-    }
-    
-    fetchStats();
-  }, []);
+  const { metrics, loading } = useAdminMetrics();
+  
+  const COLORS = ["#8B5CF6", "#D946EF", "#F97316", "#0EA5E9", "#10B981"];
 
   return (
     <div className="px-4 pt-6 space-y-6 pb-24">
@@ -63,44 +38,69 @@ export default function AdminDashboard() {
         </TabsList>
 
         <TabsContent value="metricas" className="space-y-6 mt-0">
-          {loading ? (
+          {loading || !metrics ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>
-              <p className="font-semibold">Cargando métricas globales...</p>
+              <p className="font-semibold">Calculando métricas globales...</p>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-4">
-                <StatCard icon={Users} label="Usuarios totales" value={stats.usuarios} />
-                <StatCard icon={Store} label="Negocios activos" value={stats.negocios} />
-                <StatCard icon={Receipt} label="Transacciones" value={stats.transacciones} />
+                <StatCard icon={Users} label="Usuarios totales" value={metrics.total_usuarios} />
+                <StatCard 
+                  icon={PieChart} 
+                  label="Crecimiento" 
+                  value={`${metrics.tasa_crecimiento_mensual}%`} 
+                  isString 
+                />
               </div>
 
-              <div className="mt-8 rounded-3xl border border-border bg-card p-5 shadow-sm">
-                <div className="flex items-center gap-3 mb-5">
+              <Card className="rounded-3xl border-border bg-card shadow-sm overflow-hidden">
+                <CardHeader className="flex flex-row items-center gap-3 space-y-0 p-5 pb-2">
                   <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                    <PieChart className="h-5 w-5" />
+                    <BarChart className="h-5 w-5" />
                   </div>
-                  <h2 className="font-extrabold text-lg">Segmentación por Giro</h2>
-                </div>
-                
-                <div className="space-y-4">
-                  {Object.entries(giros).length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No hay negocios registrados.</p>
-                  ) : (
-                    Object.entries(giros)
-                      .sort((a, b) => b[1] - a[1]) // Ordenar de mayor a menor
-                      .map(([giro, count]) => (
-                        <div key={giro} className="flex justify-between items-center">
-                          <span className="text-sm font-bold text-muted-foreground line-clamp-1 mr-4">{giro}</span>
-                          <span className="text-base font-extrabold bg-muted px-3 py-1 rounded-xl whitespace-nowrap">
-                            {count} {count === 1 ? "negocio" : "negocios"}
-                          </span>
+                  <CardTitle className="font-extrabold text-lg">Distribución por Giro</CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 pt-0">
+                  <div className="h-[250px] w-full mt-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={metrics.distribucion_giros} layout="vertical" margin={{ left: -20, right: 20 }}>
+                        <XAxis type="number" hide />
+                        <YAxis 
+                          dataKey="giro" 
+                          type="category" 
+                          tick={{ fontSize: 10, fontWeight: 700 }} 
+                          width={100}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip 
+                          cursor={{ fill: 'transparent' }}
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                        />
+                        <Bar dataKey="cantidad" radius={[0, 8, 8, 0]} barSize={24}>
+                          {metrics.distribucion_giros.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="mt-6 space-y-3">
+                    {metrics.distribucion_giros.map((item, index) => (
+                      <div key={item.giro} className="flex justify-between items-center text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                          <span className="font-bold text-muted-foreground">{item.giro}</span>
                         </div>
-                      ))
-                  )}
-                </div>
-              </div>
+                        <span className="font-extrabold">{item.cantidad}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </>
           )}
         </TabsContent>
@@ -117,7 +117,17 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
+function StatCard({ 
+  icon: Icon, 
+  label, 
+  value, 
+  isString = false 
+}: { 
+  icon: React.ElementType; 
+  label: string; 
+  value: number | string;
+  isString?: boolean;
+}) {
   return (
     <div className="rounded-3xl border border-border bg-card p-5 shadow-sm transition-all hover:scale-[1.02]">
       <Icon className="h-8 w-8 text-primary mb-3 opacity-90" />

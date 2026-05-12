@@ -14,6 +14,13 @@ export interface DatosTicket {
   categoria: string;
 }
 
+export interface OCRResult {
+  monto_detectado: number;
+  fecha_emision: string; // ISO 8601
+  rfc_emisor: string | null;
+  confidence_score: number;
+}
+
 // ─── Helpers de parseo ────────────────────────────────────────────────────────
 
 function fileToBase64(file: File): Promise<string> {
@@ -31,8 +38,8 @@ function fileToBase64(file: File): Promise<string> {
 function extractMonto(text: string): { monto: number | null; confianza: "alta" | "media" | "baja" } {
   // Patrones de alta confianza: líneas con TOTAL / IMPORTE / A PAGAR
   const highPatterns = [
-    /(?:TOTAL|IMPORTE\s*TOTAL|IMPORTE|A\s*PAGAR|AMOUNT\s*DUE?)\s*[:\-]?\s*\$?\s*([\d,]+\.?\d{0,2})/gi,
-    /(?:SUBTOTAL)\s*[:\-]?\s*\$?\s*([\d,]+\.?\d{0,2})/gi,
+    /(?:TOTAL|IMPORTE\s*TOTAL|IMPORTE|A\s*PAGAR|AMOUNT\s*DUE?)\s*[:-]?\s*\$?\s*([\d,]+\.?\d{0,2})/gi,
+    /(?:SUBTOTAL)\s*[:-]?\s*\$?\s*([\d,]+\.?\d{0,2})/gi,
   ];
 
   for (const pat of highPatterns) {
@@ -69,9 +76,9 @@ function extractMonto(text: string): { monto: number | null; confianza: "alta" |
 function extractFecha(text: string): string | null {
   const patterns = [
     // DD/MM/YYYY  o  DD-MM-YYYY
-    /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/,
+    /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/,
     // YYYY/MM/DD
-    /\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/,
+    /\b(\d{4})[/-](\d{1,2})[/-](\d{1,2})\b/,
     // DD MMM YYYY  (12 May 2026)
     /\b(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\.?\s+(\d{4})\b/i,
   ];
@@ -126,7 +133,7 @@ function detectarCategoria(text: string): string {
 
 function extractComercio(lines: string[]): string | null {
   for (const line of lines.slice(0, 6)) {
-    const clean = line.trim().replace(/[^\w\sáéíóúÁÉÍÓÚüÜñÑ.,&\-]/g, "");
+    const clean = line.trim().replace(/[^\w\sáéíóúÁÉÍÓÚüÜñÑ.,&-]/g, "");
     if (clean.length >= 4 && clean.length <= 60 && !/^\d+$/.test(clean) && !/^[-=*]+$/.test(clean)) {
       return clean;
     }
@@ -141,60 +148,23 @@ function detectarFactura(text: string): boolean {
   );
 }
 
-// ─── Función principal ────────────────────────────────────────────────────────
+/**
+ * Función de emulación de OCR para Fase 2
+ */
+export async function procesarImagenTicket(file: File): Promise<OCRResult> {
+  // Latencia determinista de 1500ms
+  await new Promise((resolve) => setTimeout(resolve, 1500));
 
-export async function extraerDatosTicket(file: File): Promise<DatosTicket> {
-  const key = import.meta.env.VITE_GOOGLE_VISION_KEY as string | undefined;
-  if (!key) throw new Error("VITE_GOOGLE_VISION_KEY no configurada en .env");
+  // Lógica determinista basada en el tamaño del archivo
+  const monto_detectado = (file.size % 10000) / 100;
+  const fecha_emision = new Date().toISOString();
+  const confidence_score = 0.92;
+  const rfc_emisor = file.size % 2 === 0 ? "XAXX010101000" : null;
 
-  const base64 = await fileToBase64(file);
-
-  const response = await fetch(
-    `https://vision.googleapis.com/v1/images:annotate?key=${key}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: { content: base64 },
-            features: [{ type: "TEXT_DETECTION", maxResults: 1 }],
-          },
-        ],
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const err = await response.json() as { error?: { message?: string } };
-    throw new Error(err.error?.message ?? `Error Vision API (${response.status})`);
-  }
-
-  const result = await response.json() as {
-    responses: { fullTextAnnotation?: { text: string } }[];
+  return {
+    monto_detectado,
+    fecha_emision,
+    rfc_emisor,
+    confidence_score,
   };
-  const textoRaw = result.responses?.[0]?.fullTextAnnotation?.text ?? "";
-
-  if (!textoRaw.trim()) {
-    return {
-      monto: null,
-      descripcion: "No se detectó texto en la imagen",
-      fecha: null,
-      conFactura: false,
-      confianza: "baja",
-      textoRaw: "",
-      comercio: null,
-      categoria: "Gasto general",
-    };
-  }
-
-  const lines = textoRaw.split("\n").filter((l) => l.trim());
-  const { monto, confianza } = extractMonto(textoRaw);
-  const fecha = extractFecha(textoRaw);
-  const categoria = detectarCategoria(textoRaw);
-  const comercio = extractComercio(lines);
-  const conFactura = detectarFactura(textoRaw);
-  const descripcion = comercio ? `${categoria} — ${comercio}` : categoria;
-
-  return { monto, descripcion, fecha, conFactura, confianza, textoRaw, comercio, categoria };
 }
