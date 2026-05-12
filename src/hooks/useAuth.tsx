@@ -1,13 +1,7 @@
-<<<<<<< HEAD
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-=======
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { auditLog } from "@/lib/auditoria";
->>>>>>> Facilito_alpha
 
 interface AuthCtx {
   session: Session | null;
@@ -21,17 +15,6 @@ const Ctx = createContext<AuthCtx>({ session: null, user: null, loading: true, s
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
-
-  useEffect(() => {
-    // Listener FIRST, then getSession (per Lovable Cloud guidance)
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setLoading(false);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-=======
   const lastUserId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -49,17 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       if (data.session?.user) lastUserId.current = data.session.user.id;
->>>>>>> Facilito_alpha
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-<<<<<<< HEAD
-=======
     void auditLog("LOGOUT");
->>>>>>> Facilito_alpha
     await supabase.auth.signOut();
   };
 

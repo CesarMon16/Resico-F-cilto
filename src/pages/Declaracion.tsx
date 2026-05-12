@@ -1,162 +1,3 @@
-<<<<<<< HEAD
-import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Calculator, CheckCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useNegocio } from "@/hooks/useNegocio";
-import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
-
-const steps = [
-  { question: "¿Cuánto vendiste este mes en total?", emoji: "💰", hint: "Si no estás seguro, pon un estimado", field: "ingresos" as const },
-  { question: "¿Cuánto gastaste para tu negocio?", emoji: "🛒", hint: "Solo gastos con factura cuentan para IVA", field: "gastos" as const },
-];
-
-export default function Declaracion() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { negocio } = useNegocio();
-  const [step, setStep] = useState(0);
-  const [values, setValues] = useState({ ingresos: "", gastos: "" });
-  const [showResult, setShowResult] = useState(false);
-  const [prefilled, setPrefilled] = useState(false);
-
-  useEffect(() => {
-    if (!negocio || prefilled) return;
-    const start = new Date();
-    start.setDate(1);
-    supabase
-      .from("transacciones")
-      .select("tipo, monto, fecha, con_factura")
-      .eq("negocio_id", negocio.id)
-      .gte("fecha", start.toISOString().slice(0, 10))
-      .then(({ data }) => {
-        const arr = (data ?? []) as any[];
-        const ing = arr.filter((t) => t.tipo === "INGRESO").reduce((s, t) => s + Number(t.monto), 0);
-        const gas = arr.filter((t) => t.tipo === "GASTO").reduce((s, t) => s + Number(t.monto), 0);
-        setValues({ ingresos: ing ? String(ing) : "", gastos: gas ? String(gas) : "" });
-        setPrefilled(true);
-      });
-  }, [negocio, prefilled]);
-
-  const currentStep = steps[step];
-
-  // Tratamos los valores capturados como totales con IVA y con factura por defecto.
-  const movs: Movimiento[] = [
-    { tipo: "INGRESO", monto: parseFloat(values.ingresos) || 0, con_factura: true, fecha: new Date().toISOString().slice(0, 10) },
-    { tipo: "GASTO", monto: parseFloat(values.gastos) || 0, con_factura: true, fecha: new Date().toISOString().slice(0, 10) },
-  ];
-  const r = calcularResumen(movs);
-
-  const handleNext = async () => {
-    if (step < steps.length - 1) {
-      setStep(step + 1);
-      return;
-    }
-    setShowResult(true);
-    if (user && negocio) {
-      const periodo = new Date().toISOString().slice(0, 7);
-      await supabase.from("calculos_fiscales").insert({
-        usuario_id: user.id,
-        negocio_id: negocio.id,
-        periodo,
-        ingresos: r.ingresosTotal,
-        gastos: r.gastosTotal,
-        isr_estimado: r.isr,
-        iva_estimado: Math.max(r.ivaAPagar, 0),
-      });
-    }
-  };
-
-  if (showResult) {
-    const hoy = new Date();
-    return (
-      <div className="px-4 pt-6 space-y-6 animate-slide-up">
-        <button onClick={() => navigate("/")} className="flex items-center gap-2 text-muted-foreground font-semibold">
-          <ArrowLeft className="h-5 w-5" /> Inicio
-        </button>
-
-        <div className="rounded-2xl bg-success-light p-6 text-center">
-          <CheckCircle className="mx-auto h-14 w-14 text-success" />
-          <h1 className="mt-3 text-2xl font-extrabold">¡Cálculo listo!</h1>
-          <p className="text-muted-foreground">{MESES_ES[hoy.getMonth()]} {hoy.getFullYear()}</p>
-        </div>
-
-        <div className="space-y-3">
-          <ResultRow label="Vendiste (con IVA)" value={r.ingresosTotal} />
-          <ResultRow label="Base ingresos (sin IVA)" value={r.ingresosSubtotal} />
-          <ResultRow label="Gastaste (con IVA)" value={r.gastosTotal} />
-          <div className="border-t border-border" />
-          <ResultRow label={`ISR RESICO (${(r.tasaISR * 100).toFixed(2)}%)`} value={r.isr} highlight />
-          <ResultRow
-            label={r.ivaAPagar < 0 ? "IVA a favor" : "IVA a pagar"}
-            value={Math.abs(r.ivaAPagar)}
-            highlight
-          />
-          <div className="border-t border-border" />
-          <ResultRow label="Total a pagar" value={r.totalImpuestos} highlight />
-        </div>
-
-        <div className="rounded-xl bg-warning-light p-4 text-sm">
-          <p className="font-bold text-warning">⚠️ Recuerda</p>
-          <p className="text-muted-foreground mt-1">
-            Este es un estimado. El IVA puede variar según tu actividad y facturación. Para tu declaración oficial,
-            consulta con un contador o el SAT.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-4 pt-6 space-y-6 animate-slide-up">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
-        <ArrowLeft className="h-5 w-5" /> Regresar
-      </button>
-
-      <div className="flex gap-2">
-        {steps.map((_, i) => (
-          <div key={i} className={`h-2 flex-1 rounded-full transition-colors ${i <= step ? "bg-primary" : "bg-muted"}`} />
-        ))}
-      </div>
-
-      <div className="rounded-2xl bg-muted p-6">
-        <p className="text-4xl">{currentStep.emoji}</p>
-        <h2 className="mt-3 text-xl font-extrabold">{currentStep.question}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{currentStep.hint}</p>
-      </div>
-
-      <div className="relative">
-        <Calculator className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="number"
-          inputMode="decimal"
-          placeholder="$0.00"
-          value={values[currentStep.field]}
-          onChange={(e) => setValues({ ...values, [currentStep.field]: e.target.value })}
-          className="w-full rounded-xl border border-input bg-card p-4 pl-12 text-2xl font-bold outline-none ring-ring focus:ring-2"
-        />
-      </div>
-
-      <button
-        onClick={handleNext}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary p-4 text-lg font-bold text-primary-foreground shadow-md transition-all active:scale-[0.98]"
-      >
-        {step < steps.length - 1 ? "Siguiente" : "Calcular impuestos"}
-        <ArrowRight className="h-5 w-5" />
-      </button>
-    </div>
-  );
-}
-
-function ResultRow({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
-  return (
-    <div className="flex items-center justify-between rounded-xl bg-card p-4">
-      <span className={highlight ? "font-bold" : "text-muted-foreground"}>{label}</span>
-      <span className={`font-bold ${highlight ? "text-primary text-lg" : ""}`}>
-        {formatMXN(value)}
-      </span>
-=======
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -873,6 +714,116 @@ export default function Declaracion() {
         ) : (
           <Save className="h-5 w-5" />
         )}
+    </div>
+  );
+
+  /* ── PASO 3: Reporte descriptivo ── */
+  const Paso3 = (
+    <div className="space-y-5">
+      <div>
+        <div className="rounded-full bg-primary/15 w-12 h-12 flex items-center justify-center">
+          <Sparkles className="h-6 w-6 text-primary" />
+        </div>
+        <h1 className="text-2xl font-extrabold mt-3">
+          Tu reporte de {periodo}
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Te explico todo paso a paso, como si nunca hubieras pagado impuestos.
+        </p>
+      </div>
+
+      {/* Tarjeta total destacado */}
+      <div className="rounded-2xl bg-primary p-6 text-primary-foreground shadow-lg">
+        <p className="text-sm opacity-75">Total estimado a pagar al SAT</p>
+        <p className="text-4xl font-extrabold mt-1">
+          {formatMXN(resumen.totalImpuestos)}
+        </p>
+        <p className="text-xs opacity-60 mt-1">
+          ISR ({formatMXN(resumen.isr)}) + IVA a pagar ({formatMXN(Math.max(resumen.ivaAPagar, 0))})
+        </p>
+      </div>
+
+      {/* Grid de métricas con descripción */}
+      <div className="grid grid-cols-2 gap-3">
+
+        {/* Utilidad */}
+        <div className="rounded-2xl bg-card border border-border p-4 space-y-1 col-span-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Utilidad</p>
+          <p className="text-2xl font-extrabold">{formatMXN(resumen.utilidad)}</p>
+          <p className="text-[11px] font-mono text-primary/80 bg-primary/5 rounded-lg px-2 py-1">
+            Ventas sin IVA ({formatMXN(resumen.ingresosSubtotal)}) − Compras sin IVA ({formatMXN(resumen.gastosSubtotal)})
+          </p>
+          <p className="text-xs text-muted-foreground">Lo que queda de tus ventas después de restar lo que gastaste (ambos sin IVA).</p>
+        </div>
+
+        {/* ISR */}
+        <div className="rounded-2xl bg-card border border-border p-4 space-y-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ISR RESICO ({(resumen.tasaISR * 100).toFixed(2)}%)</p>
+          <p className="text-xl font-extrabold">{formatMXN(resumen.isr)}</p>
+          <p className="text-[11px] font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-2 py-1">
+            Ventas sin IVA × {(resumen.tasaISR * 100).toFixed(2)}%
+          </p>
+          <p className="text-xs text-muted-foreground">El SAT te cobra un % de todo lo que vendiste (sin IVA). En RESICO la tasa es muy baja.</p>
+        </div>
+
+        {/* IVA a pagar */}
+        <div className="rounded-2xl bg-card border border-border p-4 space-y-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">IVA a pagar</p>
+          <p className={`text-xl font-extrabold ${resumen.ivaAPagar < 0 ? "text-green-600" : ""}`}>
+            {formatMXN(resumen.ivaAPagar)}
+          </p>
+          <p className="text-[11px] font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 rounded-lg px-2 py-1">
+            IVA cobrado − IVA acreditable
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {resumen.ivaAPagar < 0
+              ? "Pagaste más IVA del que cobraste — tienes saldo a favor 🎉"
+              : "Lo que cobraste de IVA a tus clientes menos lo que pagaste en compras con factura."}
+          </p>
+        </div>
+
+        {/* IVA cobrado */}
+        <div className="rounded-2xl bg-card border border-border p-4 space-y-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">IVA cobrado</p>
+          <p className="text-xl font-extrabold">{formatMXN(resumen.ivaCobrado)}</p>
+          <p className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-2 py-1">
+            Suma del 16% de tus ventas con factura
+          </p>
+          <p className="text-xs text-muted-foreground">El IVA que tus clientes te pagaron y que debes entregar al SAT.</p>
+        </div>
+
+        {/* IVA acreditable */}
+        <div className="rounded-2xl bg-card border border-border p-4 space-y-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">IVA acreditable</p>
+          <p className="text-xl font-extrabold">{formatMXN(resumen.ivaAcreditable)}</p>
+          <p className="text-[11px] font-mono text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/20 rounded-lg px-2 py-1">
+            Suma del 16% de tus compras con factura
+          </p>
+          <p className="text-xs text-muted-foreground">El IVA que pagaste en compras con factura. Esto reduce lo que le debes al SAT.</p>
+        </div>
+
+      </div>
+
+      {/* Explicaciones detalladas */}
+      <ReporteDescriptivo r={resumen} periodo={periodo} />
+
+      {/* Aviso */}
+      <p className="text-xs text-center text-muted-foreground px-4">
+        ⚠️ Esto es una estimación informativa. No sustituye la asesoría de un
+        contador certificado.
+      </p>
+
+      {/* Guardar */}
+      <button
+        onClick={guardar}
+        disabled={guardando}
+        className="w-full rounded-2xl bg-primary p-4 text-primary-foreground font-bold text-base flex items-center justify-center gap-2 disabled:opacity-60"
+      >
+        {guardando ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <Save className="h-5 w-5" />
+        )}
         Guardar este cálculo
       </button>
     </div>
@@ -885,7 +836,6 @@ export default function Declaracion() {
       {paso === 1 && Paso1}
       {paso === 2 && Paso2}
       {paso === 3 && Paso3}
->>>>>>> Facilito_alpha
     </div>
   );
 }

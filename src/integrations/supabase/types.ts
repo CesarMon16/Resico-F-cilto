@@ -48,10 +48,7 @@ export type Database = {
           iva_estimado: number
           negocio_id: string
           periodo: string
-<<<<<<< HEAD
-=======
           tenant_id: string | null
->>>>>>> Facilito_alpha
           usuario_id: string
         }
         Insert: {
@@ -63,10 +60,7 @@ export type Database = {
           iva_estimado?: number
           negocio_id: string
           periodo: string
-<<<<<<< HEAD
-=======
           tenant_id?: string | null
->>>>>>> Facilito_alpha
           usuario_id: string
         }
         Update: {
@@ -78,10 +72,7 @@ export type Database = {
           iva_estimado?: number
           negocio_id?: string
           periodo?: string
-<<<<<<< HEAD
-=======
           tenant_id?: string | null
->>>>>>> Facilito_alpha
           usuario_id?: string
         }
         Relationships: [
@@ -94,8 +85,6 @@ export type Database = {
           },
         ]
       }
-<<<<<<< HEAD
-=======
       contador_clientes: {
         Row: {
           cliente_id: string
@@ -123,7 +112,6 @@ export type Database = {
         }
         Relationships: []
       }
->>>>>>> Facilito_alpha
       creditos: {
         Row: {
           estatus: Database["public"]["Enums"]["estatus_credito"]
@@ -189,10 +177,7 @@ export type Database = {
           giro: string | null
           id: string
           nombre_negocio: string
-<<<<<<< HEAD
-=======
           tenant_id: string | null
->>>>>>> Facilito_alpha
           ubicacion: string | null
           updated_at: string
           usuario_id: string
@@ -202,10 +187,7 @@ export type Database = {
           giro?: string | null
           id?: string
           nombre_negocio: string
-<<<<<<< HEAD
-=======
           tenant_id?: string | null
->>>>>>> Facilito_alpha
           ubicacion?: string | null
           updated_at?: string
           usuario_id: string
@@ -215,10 +197,7 @@ export type Database = {
           giro?: string | null
           id?: string
           nombre_negocio?: string
-<<<<<<< HEAD
-=======
           tenant_id?: string | null
->>>>>>> Facilito_alpha
           ubicacion?: string | null
           updated_at?: string
           usuario_id?: string
@@ -228,12 +207,6 @@ export type Database = {
       profiles: {
         Row: {
           actividad_economica: string | null
-<<<<<<< HEAD
-          correo: string | null
-          created_at: string
-          curp: string | null
-          domicilio_fiscal: string | null
-=======
           ciudad: string | null
           correo: string | null
           created_at: string
@@ -241,15 +214,11 @@ export type Database = {
           despacho: string | null
           domicilio_fiscal: string | null
           experiencia_anios: number | null
->>>>>>> Facilito_alpha
           fecha_inicio_operaciones: string | null
           fecha_registro: string
           id: string
           nombre: string
-<<<<<<< HEAD
-=======
           onboarding_completo: boolean
->>>>>>> Facilito_alpha
           regimen_fiscal: string | null
           rfc: string | null
           telefono: string | null
@@ -257,12 +226,6 @@ export type Database = {
         }
         Insert: {
           actividad_economica?: string | null
-<<<<<<< HEAD
-          correo?: string | null
-          created_at?: string
-          curp?: string | null
-          domicilio_fiscal?: string | null
-=======
           ciudad?: string | null
           correo?: string | null
           created_at?: string
@@ -270,15 +233,11 @@ export type Database = {
           despacho?: string | null
           domicilio_fiscal?: string | null
           experiencia_anios?: number | null
->>>>>>> Facilito_alpha
           fecha_inicio_operaciones?: string | null
           fecha_registro?: string
           id: string
           nombre: string
-<<<<<<< HEAD
-=======
           onboarding_completo?: boolean
->>>>>>> Facilito_alpha
           regimen_fiscal?: string | null
           rfc?: string | null
           telefono?: string | null
@@ -286,12 +245,6 @@ export type Database = {
         }
         Update: {
           actividad_economica?: string | null
-<<<<<<< HEAD
-          correo?: string | null
-          created_at?: string
-          curp?: string | null
-          domicilio_fiscal?: string | null
-=======
           ciudad?: string | null
           correo?: string | null
           created_at?: string
@@ -299,15 +252,11 @@ export type Database = {
           despacho?: string | null
           domicilio_fiscal?: string | null
           experiencia_anios?: number | null
->>>>>>> Facilito_alpha
           fecha_inicio_operaciones?: string | null
           fecha_registro?: string
           id?: string
           nombre?: string
-<<<<<<< HEAD
-=======
           onboarding_completo?: boolean
->>>>>>> Facilito_alpha
           regimen_fiscal?: string | null
           rfc?: string | null
           telefono?: string | null
@@ -328,10 +277,7 @@ export type Database = {
           monto: number
           negocio_id: string
           origen: string | null
-<<<<<<< HEAD
-=======
           tenant_id: string | null
->>>>>>> Facilito_alpha
           tipo: Database["public"]["Enums"]["tipo_transaccion"]
           usuario_id: string
         }
@@ -347,10 +293,7 @@ export type Database = {
           monto: number
           negocio_id: string
           origen?: string | null
-<<<<<<< HEAD
-=======
           tenant_id?: string | null
->>>>>>> Facilito_alpha
           tipo: Database["public"]["Enums"]["tipo_transaccion"]
           usuario_id: string
         }
@@ -366,10 +309,7 @@ export type Database = {
           monto?: number
           negocio_id?: string
           origen?: string | null
-<<<<<<< HEAD
-=======
           tenant_id?: string | null
->>>>>>> Facilito_alpha
           tipo?: Database["public"]["Enums"]["tipo_transaccion"]
           usuario_id?: string
         }
@@ -409,8 +349,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-<<<<<<< HEAD
-=======
       asignar_rol_inicial: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: undefined
@@ -420,7 +358,6 @@ export type Database = {
         Args: { _cliente: string; _contador: string }
         Returns: boolean
       }
->>>>>>> Facilito_alpha
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
