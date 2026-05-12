@@ -38,7 +38,7 @@ export default function ElegirRol() {
             <Store className="h-8 w-8 text-success" />
           </div>
           <div className="flex-1">
-            <p className="text-lg font-extrabold">Soy comerciante 🛒</p>
+            <p className="text-lg font-extrabold">Comenzar a registrar mi actividad 🛒</p>
             <p className="text-sm text-muted-foreground">
               Tengo un negocio y quiero llevar mis cuentas e impuestos.
             </p>

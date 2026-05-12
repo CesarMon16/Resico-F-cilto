@@ -270,7 +270,7 @@ export default function Declaracion() {
   const [guardando, setGuardando] = useState(false);
 
   /* datos remotos */
-  const { movs: movsRemotos, loading } = useResumenMes(mes, anio);
+  const { movs: movsRemotos, loading } = useResumenMes(anio);
 
   /* copias locales editables */
   const [ingresos, setIngresos] = useState<MovLocal[]>([]);

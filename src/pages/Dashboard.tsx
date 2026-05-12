@@ -26,7 +26,6 @@ export default function Dashboard() {
   const { negocio, loading: negocioLoading } = useNegocio();
   const [nombre, setNombre] = useState("");
   const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
-  const [mes, setMes] = useState(HOY.getMonth() + 1);
   const [anio, setAnio] = useState(HOY.getFullYear());
 
   useEffect(() => {
@@ -49,11 +48,11 @@ export default function Dashboard() {
     })();
   }, [negocio]);
 
-  const { delPeriodo, recientes, resumen } = useMemo(() => {
-    const inicio = `${anio}-${String(mes).padStart(2, "0")}-01`;
-    const finDate = new Date(anio, mes, 0); // último día del mes
-    const fin = `${anio}-${String(mes).padStart(2, "0")}-${String(finDate.getDate()).padStart(2, "0")}`;
-    const delPeriodo = movs.filter((m) => m.fecha >= inicio && m.fecha <= fin);
+  const { recientes, resumen } = useMemo(() => {
+    // Agregación anual por defecto
+    const inicioAnio = `${anio}-01-01`;
+    const finAnio = `${anio}-12-31`;
+    const delPeriodo = movs.filter((m) => m.fecha >= inicioAnio && m.fecha <= finAnio);
     const resumen = calcularResumen(delPeriodo);
     const recientes: Transaction[] = movs.slice(0, 4).map((t) => ({
       id: t.id,
@@ -62,12 +61,12 @@ export default function Dashboard() {
       descripcion: t.descripcion ?? "",
       fecha: new Date(t.fecha + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
     }));
-    return { delPeriodo, recientes, resumen };
-  }, [movs, mes, anio]);
+    return { recientes, resumen };
+  }, [movs, anio]);
 
   if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
 
-  const periodoLabel = `${MESES_ES[mes - 1]} ${anio}`;
+  const periodoLabel = `Ejercicio ${anio}`;
   const anios = [HOY.getFullYear() - 1, HOY.getFullYear(), HOY.getFullYear() + 1];
 
   return (
@@ -99,18 +98,9 @@ export default function Dashboard() {
       {/* Filtros mes/año */}
       <div className="flex gap-2">
         <select
-          value={mes}
-          onChange={(e) => setMes(Number(e.target.value))}
-          className="flex-1 rounded-xl border border-input bg-card p-3 font-semibold outline-none focus:ring-2 ring-ring"
-        >
-          {MESES_ES.map((m, i) => (
-            <option key={m} value={i + 1}>{m}</option>
-          ))}
-        </select>
-        <select
           value={anio}
           onChange={(e) => setAnio(Number(e.target.value))}
-          className="rounded-xl border border-input bg-card p-3 font-semibold outline-none focus:ring-2 ring-ring"
+          className="w-full rounded-xl border border-input bg-card p-3 font-semibold outline-none focus:ring-2 ring-ring"
         >
           {anios.map((a) => (
             <option key={a} value={a}>{a}</option>

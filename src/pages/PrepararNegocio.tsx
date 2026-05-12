@@ -5,13 +5,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-const giros = ["Tienda", "Comida", "Servicios", "Ropa", "Otro"];
 
 export default function PrepararNegocio() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [nombre, setNombre] = useState("");
-  const [giro, setGiro] = useState<string>("Tienda");
   const [ubicacion, setUbicacion] = useState("");
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -29,7 +27,6 @@ export default function PrepararNegocio() {
         if (data) {
           setExistingId(data.id);
           setNombre(data.nombre_negocio);
-          setGiro(data.giro || "Tienda");
           setUbicacion(data.ubicacion || "");
         }
         setChecking(false);
@@ -46,7 +43,6 @@ export default function PrepararNegocio() {
     setBusy(true);
     const payload = {
       nombre_negocio: nombre.trim(),
-      giro,
       ubicacion: ubicacion.trim() || null,
     };
     const { error } = existingId
@@ -93,26 +89,6 @@ export default function PrepararNegocio() {
           </div>
         </div>
 
-        <div>
-          <label className="mb-2 block font-bold">¿A qué se dedica?</label>
-          <div className="grid grid-cols-3 gap-2">
-            {giros.map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setGiro(g)}
-                className={`flex items-center justify-center gap-1 rounded-xl p-3 text-sm font-bold transition-all ${
-                  giro === g
-                    ? "bg-primary text-primary-foreground shadow"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                <Briefcase className="h-4 w-4" />
-                {g}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <div>
           <label className="mb-2 block font-bold">¿Dónde está? (opcional)</label>

@@ -1,6 +1,9 @@
 import { useParams, useNavigate, Navigate, useLocation } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle } from "lucide-react";
+import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { TransaccionSchema, type TransaccionForm } from "@/validators/transaccion.schema";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
@@ -28,12 +31,22 @@ export default function Registrar() {
   const { user } = useAuth();
   const { negocio, loading: negocioLoading } = useNegocio();
   const isIngreso = tipo === "ingreso";
-  
+
   // Pre-llenar si viene de Expediente
   const initialData = location.state as { monto?: number; descripcion?: string } | null;
-  
-  const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : "");
-  const [descripcion, setDescripcion] = useState(initialData?.descripcion || "");
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TransaccionForm>({
+    resolver: zodResolver(TransaccionSchema),
+    defaultValues: {
+      tipo: isIngreso ? "ingreso" : "gasto",
+      monto: initialData?.monto || 0,
+      concepto: initialData?.descripcion || ""
+    }
+  });
+
+  const montoWatch = watch("monto");
+  const conceptoWatch = watch("concepto");
+
   const [busy, setBusy] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [ocrStep, setOcrStep] = useState<string>("");
@@ -41,8 +54,7 @@ export default function Registrar() {
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
-  
-  const [touched, setTouched] = useState({ monto: !!initialData?.monto, descripcion: !!initialData?.descripcion });
+
   const [limiteExcedidoOpen, setLimiteExcedidoOpen] = useState(false);
   const [acumuladoAnual, setAcumuladoAnual] = useState(0);
 
@@ -70,38 +82,14 @@ export default function Registrar() {
       });
   }, [isIngreso, negocio]);
 
-  /* ── Validaciones ── */
-  const montoNum = parseFloat(monto);
-  const montoError = (() => {
-    if (!touched.monto) return "";
-    if (!monto.trim()) return "El monto es obligatorio.";
-    if (isNaN(montoNum) || !isFinite(montoNum)) return "Ingresa un número válido.";
-    if (montoNum <= 0) return "El monto debe ser mayor a $0.";
-    if (montoNum < 0.01) return "El monto mínimo es $0.01.";
-    if (montoNum > 3_500_000) return "El monto supera el límite anual RESICO ($3,500,000).";
-    return "";
-  })();
-
-  const descError = (() => {
-    if (!touched.descripcion) return "";
-    if (descripcion.length > 200) return "Máximo 200 caracteres.";
-    return "";
-  })();
-
-  const formValido = !montoError && !descError && monto.trim() !== "" && montoNum > 0;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTouched({ monto: true, descripcion: true });
-    if (!formValido) return;
-
+  const onFormSubmit = async (data: TransaccionForm) => {
     if (!user || !negocio) {
       toast.error("Espera, estamos preparando tu negocio");
       return;
     }
 
     // ── Validación de tope anual RESICO (solo aplica a ingresos) ──
-    if (isIngreso && !validarTopeResico(acumuladoAnual, montoNum)) {
+    if (isIngreso && !validarTopeResico(acumuladoAnual, data.monto)) {
       setLimiteExcedidoOpen(true);
       return;
     }
@@ -112,16 +100,16 @@ export default function Registrar() {
         usuario_id: user.id,
         negocio_id: negocio.id,
         tipo: isIngreso ? "INGRESO" : "GASTO",
-        monto: montoNum,
-        descripcion: descripcion.trim() || null,
+        monto: data.monto,
+        descripcion: data.concepto.trim() || null,
       });
       if (r.offline) {
         toast.success("Guardado sin internet. Lo enviaremos cuando vuelvas en línea 📶");
       } else {
         toast.success(
           isIngreso
-            ? `¡Listo! Registraste una venta de $${montoNum.toLocaleString("es-MX")}`
-            : `¡Listo! Registraste un gasto de $${montoNum.toLocaleString("es-MX")}`,
+            ? `¡Listo! Registraste una venta de $${data.monto.toLocaleString("es-MX")}`
+            : `¡Listo! Registraste un gasto de $${data.monto.toLocaleString("es-MX")}`,
         );
       }
       navigate("/");
@@ -137,27 +125,25 @@ export default function Registrar() {
     setPreview(URL.createObjectURL(file));
     setAnalyzing(true);
     setOcrResult(null);
-    
+
     try {
       setOcrStep("Escaneando imagen...");
       await new Promise(r => setTimeout(r, 800));
-      
+
       const datos = await procesarImagenTicket(file);
-      
+
       setOcrStep("Extrayendo montos y conceptos...");
       await new Promise(r => setTimeout(r, 600));
 
       if (datos.monto_detectado) {
-        setMonto(String(datos.monto_detectado));
-        setTouched(t => ({ ...t, monto: true }));
+        setValue("monto", datos.monto_detectado, { shouldValidate: true });
       }
-      
+
       // Para gastos, sugerimos el RFC si existe
       if (!isIngreso && datos.rfc_emisor) {
-        setDescripcion(`Gasto RFC: ${datos.rfc_emisor}`);
-        setTouched(t => ({ ...t, descripcion: true }));
+        setValue("concepto", `Gasto RFC: ${datos.rfc_emisor}`, { shouldValidate: true });
       }
-      
+
       setOcrResult(datos);
       toast.success("¡Datos extraídos con éxito! 🧐");
     } catch (err: any) {
@@ -177,9 +163,9 @@ export default function Registrar() {
   return (
     <div className="px-4 pt-6 space-y-6 animate-slide-up pb-10">
       {showCamera && (
-        <CameraOverlay 
-          onCapture={procesarOCR} 
-          onClose={() => setShowCamera(false)} 
+        <CameraOverlay
+          onCapture={procesarOCR}
+          onClose={() => setShowCamera(false)}
         />
       )}
 
@@ -197,11 +183,11 @@ export default function Registrar() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <form onSubmit={handleSubmit(onFormSubmit)} noValidate className="space-y-5">
         {preview && (
           <div className="relative group rounded-2xl overflow-hidden border-2 border-primary/20 bg-card aspect-[4/3] shadow-inner">
             <img src={preview} alt="Ticket preview" className="w-full h-full object-cover" />
-            <button 
+            <button
               type="button"
               onClick={() => { setPreview(null); setAnalyzing(false); setOcrResult(null); }}
               className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full backdrop-blur-md z-10"
@@ -256,27 +242,22 @@ export default function Registrar() {
               type="number"
               inputMode="decimal"
               step="0.01"
-              min="0.01"
-              max="3500000"
               placeholder="0.00"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              onBlur={() => setTouched((t) => ({ ...t, monto: true }))}
-              className={`w-full rounded-xl border p-4 pl-12 text-2xl font-bold outline-none focus:ring-2 bg-card transition-colors ${
-                montoError
+              {...register("monto", { valueAsNumber: true })}
+              className={`w-full rounded-xl border p-4 pl-12 text-2xl font-bold outline-none focus:ring-2 bg-card transition-colors ${errors.monto
                   ? "border-destructive focus:ring-destructive/40"
                   : `border-input ${colorFocus}`
-              }`}
+                }`}
               required
             />
           </div>
-          {montoError ? (
+          {errors.monto ? (
             <p className="mt-1.5 text-xs text-destructive font-semibold">
-              ⚠️ {montoError}
+              ⚠️ {errors.monto.message}
             </p>
-          ) : monto && touched.monto ? (
+          ) : montoWatch > 0 ? (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              ✅ ${montoNum.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+              ✅ ${montoWatch.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
             </p>
           ) : null}
         </div>
@@ -291,32 +272,27 @@ export default function Registrar() {
             <FileText className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              maxLength={200}
               placeholder="Ej: Venta del día, pago de luz..."
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              onBlur={() => setTouched((t) => ({ ...t, descripcion: true }))}
-              className={`w-full rounded-xl border p-4 pl-12 text-base outline-none focus:ring-2 bg-card transition-colors ${
-                descError
+              {...register("concepto")}
+              className={`w-full rounded-xl border p-4 pl-12 text-base outline-none focus:ring-2 bg-card transition-colors ${errors.concepto
                   ? "border-destructive focus:ring-destructive/40"
                   : `border-input ${colorFocus}`
-              }`}
+                }`}
             />
           </div>
           <div className="flex justify-between mt-1.5">
-            {descError ? (
-              <p className="text-xs text-destructive font-semibold">⚠️ {descError}</p>
+            {errors.concepto ? (
+              <p className="text-xs text-destructive font-semibold">⚠️ {errors.concepto.message}</p>
             ) : (
               <span />
             )}
             <p
-              className={`text-xs ${
-                descripcion.length > 180
+              className={`text-xs ${conceptoWatch.length > 90
                   ? "text-destructive font-semibold"
                   : "text-muted-foreground"
-              }`}
+                }`}
             >
-              {descripcion.length}/200
+              {conceptoWatch.length}/100
             </p>
           </div>
         </div>
@@ -358,7 +334,7 @@ export default function Registrar() {
           {busy ? "Guardando..." : analyzing ? "Analizando..." : negocioLoading || !negocio ? "Preparando..." : isIngreso ? "Registrar venta" : "Registrar gasto"}
         </button>
 
-        {touched.monto && !formValido && (
+        {Object.keys(errors).length > 0 && (
           <p className="text-center text-xs text-muted-foreground">
             Corrige los campos marcados antes de continuar.
           </p>

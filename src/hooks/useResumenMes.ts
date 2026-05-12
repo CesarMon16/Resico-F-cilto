@@ -5,7 +5,7 @@ import { useNegocio } from "./useNegocio";
 import { calcularResumen, type Movimiento, type ResumenFiscal } from "@/lib/fiscal";
 import type { Tables } from "@/integrations/supabase/types";
 
-export function useResumenMes(mes: number, anio: number) {
+export function useResumenMes(anio: number) {
   const { negocio } = useNegocio();
   const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,23 +16,24 @@ export function useResumenMes(mes: number, anio: number) {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const inicio = `${anio}-${String(mes).padStart(2, "0")}-01`;
-      const finDate = new Date(anio, mes, 0);
-      const fin = `${anio}-${String(mes).padStart(2, "0")}-${String(finDate.getDate()).padStart(2, "0")}`;
+      // Refactorizado para reporte anual/histórico ignorando límites mensuales
+      const inicioAnio = `${anio}-01-01`;
+      const finAnio = `${anio}-12-31`;
+      
       const { data } = await supabase
         .from("transacciones")
         .select("id, tipo, monto, fecha, con_factura, descripcion")
         .eq("negocio_id", negocio.id)
-        .gte("fecha", inicio)
-        .lte("fecha", fin)
+        .gte("fecha", inicioAnio)
+        .lte("fecha", finAnio)
         .order("fecha", { ascending: false });
+
       const { data: config } = await supabase
         .from("configuracion_sistema")
         .select("iva_rate")
         .eq("id", 1)
-        .single();
+        .maybeSingle();
         
-      // Si la tabla no existe aún, config será null y usamos 16% por defecto
       const ivaRate = config?.iva_rate ? Number(config.iva_rate) : 0.16;
 
       if (cancel) return;
@@ -42,7 +43,7 @@ export function useResumenMes(mes: number, anio: number) {
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [negocio, mes, anio]);
+  }, [negocio, anio]);
 
   return { movs, resumen, loading };
 }

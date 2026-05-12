@@ -125,7 +125,13 @@ export function UserProfileView() {
         <MenuItem icon={<BookOpen className="h-5 w-5" />} label="Mi historial fiscal" to="/historial-fiscal" hint="Mes a mes, todo en un lugar" />
         <MenuItem icon={<FileText className="h-5 w-5" />} label="Mis documentos" to="/expediente" hint="Tickets y comprobantes" />
         <MenuItem icon={<HandCoins className="h-5 w-5" />} label="Créditos y apoyos" to="/creditos" />
-        <MenuItem icon={<Phone className="h-5 w-5" />} label="Cambiar teléfono" hint="Próximamente" />
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/50 opacity-60">
+          <Phone className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-semibold text-muted-foreground">Teléfono de contacto</p>
+            <p className="text-xs text-muted-foreground">Bloqueado para edición</p>
+          </div>
+        </div>
       </div>
     </div>
   );
