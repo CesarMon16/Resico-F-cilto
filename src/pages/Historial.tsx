@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-import { TransactionItem, Transaction } from "@/components/TransactionItem";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useNegocio } from "@/hooks/useNegocio";
-
-const filters = ["Todos", "Ventas", "Gastos"] as const;
-
-=======
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownCircle,
@@ -288,18 +279,13 @@ function FilaTx({
 }
 
 /* ─── Página Historial ──────────────────────────────────────────── */
->>>>>>> Facilito_alpha
 export default function Historial() {
   const { negocio } = useNegocio();
   const [filter, setFilter] = useState<(typeof filters)[number]>("Todos");
   const [items, setItems] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-<<<<<<< HEAD
-  useEffect(() => {
-=======
   const cargar = () => {
->>>>>>> Facilito_alpha
     if (!negocio) return;
     setLoading(true);
     supabase
@@ -313,12 +299,6 @@ export default function Historial() {
         setItems(
           (data ?? []).map((t: any) => ({
             id: t.id,
-<<<<<<< HEAD
-            tipo: t.tipo,
-            monto: Number(t.monto),
-            descripcion: t.descripcion ?? "",
-            fecha: new Date(t.fecha).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }),
-=======
             tipo: t.tipo as "INGRESO" | "GASTO",
             monto: Number(t.monto),
             descripcion: t.descripcion ?? "",
@@ -327,15 +307,10 @@ export default function Historial() {
               "es-MX",
               { day: "numeric", month: "short", year: "numeric" }
             ),
->>>>>>> Facilito_alpha
           }))
         );
         setLoading(false);
       });
-<<<<<<< HEAD
-  }, [negocio]);
-
-=======
   };
 
   useEffect(() => {
@@ -394,19 +369,12 @@ export default function Historial() {
     }
   };
 
->>>>>>> Facilito_alpha
   const filtered = items.filter((t) => {
     if (filter === "Ventas") return t.tipo === "INGRESO";
     if (filter === "Gastos") return t.tipo === "GASTO";
     return true;
   });
 
-<<<<<<< HEAD
-  return (
-    <div className="px-4 pt-6 space-y-5">
-      <h1 className="text-2xl font-extrabold">📋 Tu historial</h1>
-
-=======
   /* totales del filtro activo */
   const totalVentas = filtered
     .filter((t) => t.tipo === "INGRESO")
@@ -420,20 +388,15 @@ export default function Historial() {
       <h1 className="text-2xl font-extrabold">📋 Tu historial</h1>
 
       {/* Filtros */}
->>>>>>> Facilito_alpha
       <div className="flex gap-2">
         {filters.map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={`rounded-full px-4 py-2 text-sm font-bold transition-all ${
-<<<<<<< HEAD
-              filter === f ? "bg-primary text-primary-foreground shadow" : "bg-muted text-muted-foreground"
-=======
               filter === f
                 ? "bg-primary text-primary-foreground shadow"
                 : "bg-muted text-muted-foreground"
->>>>>>> Facilito_alpha
             }`}
           >
             {f}
@@ -441,15 +404,6 @@ export default function Historial() {
         ))}
       </div>
 
-<<<<<<< HEAD
-      <div className="space-y-3">
-        {loading ? (
-          <p className="text-center text-sm text-muted-foreground py-6">Cargando...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center text-sm text-muted-foreground py-6">Sin movimientos todavía</p>
-        ) : (
-          filtered.map((t) => <TransactionItem key={t.id} {...t} />)
-=======
       {/* Mini resumen rápido */}
       {!loading && items.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
@@ -495,7 +449,6 @@ export default function Historial() {
               onDelete={handleDelete}
             />
           ))
->>>>>>> Facilito_alpha
         )}
       </div>
     </div>
