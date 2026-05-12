@@ -36,7 +36,7 @@ export default function PrepararNegocio() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) {
-      toast.error("Escribe el nombre de tu negocio");
+      toast.error("Escribe el nombre de tu actividad");
       return;
     }
     if (!user) return;
@@ -53,7 +53,7 @@ export default function PrepararNegocio() {
       toast.error("No se pudo guardar. Intenta otra vez");
       return;
     }
-    toast.success(existingId ? "Negocio actualizado" : "¡Listo! Tu negocio está preparado");
+    toast.success(existingId ? "Actividad actualizada" : "¡Listo! Tu actividad está preparada");
     navigate("/", { replace: true });
   };
 
@@ -65,18 +65,18 @@ export default function PrepararNegocio() {
     <div className="px-4 pt-6 space-y-6 animate-slide-up">
       <div className="rounded-2xl bg-primary/10 p-6">
         <h1 className="text-2xl font-extrabold">
-          {existingId ? "🏪 Mi negocio" : "👋 Vamos a preparar tu negocio"}
+          {existingId ? "🏪 Mi actividad" : "👋 Vamos a preparar tu actividad"}
         </h1>
         <p className="text-muted-foreground mt-1">
           {existingId
-            ? "Actualiza los datos de tu negocio cuando quieras."
+            ? "Actualiza los datos de tu actividad cuando quieras."
             : "Cuéntanos un poquito para empezar a registrar tus ventas y gastos."}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="mb-2 block font-bold">¿Cómo se llama tu negocio?</label>
+          <label className="mb-2 block font-bold">¿Cómo se llama tu actividad?</label>
           <div className="relative">
             <Store className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <input

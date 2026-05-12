@@ -64,4 +64,36 @@ export class NotificationService extends BaseService {
         });
     }, "NOTIFICACION_ENVIADA");
   }
+
+  /**
+   * Guarda una suscripción push en la base de datos.
+   */
+  async guardarSuscripcion(subscription: PushSubscription) {
+    return this.exec(async () => {
+      const { endpoint, keys } = subscription.toJSON();
+      if (!endpoint || !keys) throw new Error("Suscripción inválida");
+
+      return supabase
+        .from("push_subscriptions")
+        .upsert({
+          usuario_id: this.usuario_id,
+          endpoint: endpoint,
+          p256dh: keys.p256dh,
+          auth: keys.auth
+        }, { onConflict: 'endpoint' });
+    }, "SUSCRIPCION_PUSH_GUARDADA");
+  }
+
+  /**
+   * Elimina una suscripción push.
+   */
+  async eliminarSuscripcion(endpoint: string) {
+    return this.exec(async () => {
+      return supabase
+        .from("push_subscriptions")
+        .delete()
+        .eq("endpoint", endpoint)
+        .eq("usuario_id", this.usuario_id);
+    }, "SUSCRIPCION_PUSH_ELIMINADA");
+  }
 }

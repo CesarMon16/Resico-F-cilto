@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import type { Tables } from "@/integrations/supabase/types";
 
 function saludo() {
@@ -24,6 +25,7 @@ const HOY = new Date();
 export default function Dashboard() {
   const { user } = useAuth();
   const { negocio, loading: negocioLoading } = useNegocio();
+  const { permission, subscribe } = usePushNotifications();
   const [nombre, setNombre] = useState("");
   const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [anio, setAnio] = useState(HOY.getFullYear());
@@ -78,6 +80,26 @@ export default function Dashboard() {
         </div>
         <Avisos />
       </div>
+
+      {permission === "default" && (
+        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-primary/20 p-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold">Activa tus recordatorios</p>
+              <p className="text-[10px] text-muted-foreground">Te avisaremos antes de tu declaración.</p>
+            </div>
+          </div>
+          <button 
+            onClick={subscribe}
+            className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm active:scale-95"
+          >
+            Activar
+          </button>
+        </div>
+      )}
 
       {resumen && <SaludFinanciera resumen={resumen} />}
 
