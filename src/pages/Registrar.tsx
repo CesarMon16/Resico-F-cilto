@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { crearTransaccion } from "@/services/transacciones.service";
 import { handleError } from "@/lib/errors";
-import { procesarImagenTicket, type OCRResult } from "@/lib/ocr";
+import { procesarImagenTicket, type OCRResult } from "@/lib/ocrEngine";
 import { CameraOverlay } from "@/components/CameraOverlay";
 import { supabase } from "@/integrations/supabase/client";
 import { calcularAcumuladoAnual, validarTopeResico } from "@/lib/fiscalEngine";

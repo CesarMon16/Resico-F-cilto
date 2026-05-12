@@ -14,15 +14,6 @@ export function CameraOverlay({ onCapture, onClose }: CameraOverlayProps) {
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState(false);
 
-  useEffect(() => {
-    startCamera();
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [startCamera, stream]);
-
   const startCamera = useCallback(async () => {
     setLoading(true);
     try {
@@ -47,11 +38,16 @@ export function CameraOverlay({ onCapture, onClose }: CameraOverlayProps) {
     }
   }, [onClose]);
 
-  // stopCamera is now inline in cleanup or can be defined as:
-  const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
+  useEffect(() => {
+    startCamera();
+  }, [startCamera]);
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [stream]);
 
   const takePhoto = () => {

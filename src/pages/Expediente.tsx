@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { MESES_ES } from "@/lib/fiscal";
 import { toast } from "sonner";
-import { procesarImagenTicket, type OCRResult } from "@/lib/ocr";
+import { procesarImagenTicket, type OCRResult } from "@/lib/ocrEngine";
 import { CameraOverlay } from "@/components/CameraOverlay";
 
 type Ticket = {
