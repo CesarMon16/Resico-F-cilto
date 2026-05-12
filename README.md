@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-# Welcome to your Lovable project
-
-TODO: Document your project here
-=======
 # Facilito — Plataforma de Asistencia Fiscal RESICO
 
 Asistente fiscal simple para micro-comerciantes mexicanos en régimen RESICO.
@@ -135,4 +130,3 @@ Estrategia preparada (no activa):
 - Tokens semánticos (`bg-card`, `text-primary`, `bg-success-light`) — nunca colores Tailwind crudos.
 - Mensajes de error en español, sin jerga (`"Escribe cuánto vendiste"`).
 - Mobile-first; tap targets ≥ 44px; `inputMode="decimal"` en montos.
->>>>>>> Facilito_alpha
