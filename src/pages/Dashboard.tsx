@@ -37,7 +37,7 @@ export default function Dashboard() {
   const [nombre, setNombre] = useState("");
   const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [anio, setAnio] = useState(HOY.getFullYear());
-  const [mes, setMes] = useState(HOY.getMonth() + 1);
+  const [mes, setMes] = useState<number | "all">(HOY.getMonth() + 1);
 
   useEffect(() => {
     if (!user) return;
@@ -58,8 +58,6 @@ export default function Dashboard() {
       setMovs(data ?? []);
     })();
   }, [negocio]);
-
-  const [mes, setMes] = useState<number | "all">(HOY.getMonth() + 1); // 1-12 o "all"
 
   const { recientes, resumen, anioProgreso } = useMemo(() => {
     const inicioAnio = `${anio}-01-01`;
