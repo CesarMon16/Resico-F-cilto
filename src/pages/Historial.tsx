@@ -3,6 +3,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Check,
+  Lock,
   Pencil,
   Trash2,
   X,
@@ -22,6 +23,7 @@ interface Transaction {
   descripcion: string;
   fecha: string;        // "YYYY-MM-DD"
   fechaDisplay: string; // formateada para mostrar
+  esInmutable?: boolean;
 }
 
 const filters = ["Todos", "Ventas", "Gastos"] as const;
@@ -104,7 +106,7 @@ function FilaTx({
 
   return (
     <div
-      className={`rounded-2xl border ${colorBorder} ${colorBg} p-4 transition-all`}
+      className={`rounded-2xl border ${colorBorder} ${colorBg} p-4 transition-all ${tx.esInmutable ? "opacity-90 border-dashed" : ""}`}
     >
       {editando ? (
         /* ── Modo edición ── */
@@ -247,29 +249,37 @@ function FilaTx({
           </p>
 
           <div className="flex gap-1 shrink-0">
-            <button
-              onClick={() => setEditando(true)}
-              className="rounded-xl p-2 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-              title="Editar"
-            >
-              <Pencil className="h-4 w-4 text-muted-foreground" />
-            </button>
-            {confirmDelete ? (
-              <button
-                onClick={confirmarDelete}
-                className="rounded-xl p-2 bg-destructive text-white transition-colors text-xs font-bold px-3"
-                title="Confirmar eliminación"
-              >
-                ¿Eliminar?
-              </button>
+            {tx.esInmutable ? (
+              <div className="p-2 text-muted-foreground/50" title="Registro inmutable (Periodo Declarado)">
+                <Lock className="h-4 w-4" />
+              </div>
             ) : (
-              <button
-                onClick={pedirConfirmDelete}
-                className="rounded-xl p-2 hover:bg-destructive/10 transition-colors"
-                title="Eliminar"
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </button>
+              <>
+                <button
+                  onClick={() => setEditando(true)}
+                  className="rounded-xl p-2 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  title="Editar"
+                >
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </button>
+                {confirmDelete ? (
+                  <button
+                    onClick={confirmarDelete}
+                    className="rounded-xl p-2 bg-destructive text-white transition-colors text-xs font-bold px-3"
+                    title="Confirmar eliminación"
+                  >
+                    ¿Eliminar?
+                  </button>
+                ) : (
+                  <button
+                    onClick={pedirConfirmDelete}
+                    className="rounded-xl p-2 hover:bg-destructive/10 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -288,29 +298,42 @@ export default function Historial() {
   const cargar = useCallback(() => {
     if (!negocio) return;
     setLoading(true);
-    supabase
-      .from("transacciones")
-      .select("id, tipo, monto, descripcion, fecha")
-      .eq("negocio_id", negocio.id)
-      .order("fecha", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(200)
-      .then(({ data }) => {
-        setItems(
-          (data ?? []).map((t: Tables<"transacciones">) => ({
+    (async () => {
+      const [{ data: txs }, { data: calcs }] = await Promise.all([
+        supabase
+          .from("transacciones")
+          .select("id, tipo, monto, descripcion, fecha")
+          .eq("negocio_id", negocio.id)
+          .order("fecha", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabase
+          .from("calculos_fiscales")
+          .select("periodo")
+          .eq("negocio_id", negocio.id)
+      ]);
+
+      const periodosDeclarados = new Set((calcs ?? []).map(c => c.periodo));
+
+      setItems(
+        (txs ?? []).map((t: Tables<"transacciones">) => {
+          const key = t.fecha.slice(0, 7);
+          return {
             id: t.id,
             tipo: t.tipo as "INGRESO" | "GASTO",
             monto: Number(t.monto),
             descripcion: t.descripcion ?? "",
             fecha: t.fecha,
+            esInmutable: periodosDeclarados.has(key),
             fechaDisplay: new Date(t.fecha + "T00:00:00").toLocaleDateString(
               "es-MX",
               { day: "numeric", month: "short", year: "numeric" }
             ),
-          }))
-        );
-        setLoading(false);
-      });
+          };
+        })
+      );
+      setLoading(false);
+    })();
   }, [negocio]);
 
   useEffect(() => {

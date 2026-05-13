@@ -33,16 +33,28 @@ export default function Registrar() {
   const { negocio, loading: negocioLoading } = useNegocio();
   const isIngreso = tipo === "ingreso";
 
-  // Pre-llenar si viene de Expediente
-  const initialData = location.state as { monto?: number; descripcion?: string } | null;
+  // Pre-llenar si viene de Dashboard o Expediente
+  const state = location.state as { monto?: number; descripcion?: string; defaultAnio?: number; defaultMes?: number } | null;
+  
+  const getInitialDate = () => {
+    const today = new Date();
+    if (state?.defaultAnio && state?.defaultMes) {
+      const isCurrentMonth = state.defaultAnio === today.getFullYear() && state.defaultMes === (today.getMonth() + 1);
+      if (!isCurrentMonth) {
+        return `${state.defaultAnio}-${String(state.defaultMes).padStart(2, "0")}-01`;
+      }
+    }
+    return today.toISOString().split("T")[0];
+  };
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TransaccionForm>({
+  const { register, handleSubmit, setValue, watch, formState: { errors, isValid } } = useForm<TransaccionForm>({
     resolver: zodResolver(TransaccionSchema),
+    mode: "onChange",
     defaultValues: {
       tipo: isIngreso ? "ingreso" : "gasto",
-      monto: initialData?.monto || 0,
-      concepto: initialData?.descripcion || "",
-      fecha: new Date().toISOString().split("T")[0]
+      monto: state?.monto || 0,
+      concepto: state?.descripcion || "",
+      fecha: getInitialDate()
     }
   });
 
@@ -251,16 +263,14 @@ export default function Registrar() {
           <div className="relative">
             <DollarSign className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
               placeholder="0.00"
-              {...register("monto", { valueAsNumber: true })}
+              {...register("monto")}
               className={`w-full rounded-xl border p-4 pl-12 text-2xl font-bold outline-none focus:ring-2 bg-card transition-colors ${errors.monto
                   ? "border-destructive focus:ring-destructive/40"
                   : `border-input ${colorFocus}`
                 }`}
-              required
             />
           </div>
           {errors.monto ? (
@@ -309,6 +319,27 @@ export default function Registrar() {
           </div>
         </div>
 
+        {/* ── Fecha ── */}
+        <div>
+          <label className="mb-2 block font-bold">
+            Fecha de la operación <span className="text-destructive">*</span>
+          </label>
+          <div className="relative">
+            <Calendar className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="date"
+              {...register("fecha")}
+              className={`w-full rounded-xl border p-4 pl-12 text-base outline-none focus:ring-2 bg-card transition-colors ${errors.fecha
+                  ? "border-destructive focus:ring-destructive/40"
+                  : `border-input ${colorFocus}`
+                }`}
+            />
+          </div>
+          {errors.fecha && (
+            <p className="mt-1.5 text-xs text-destructive font-semibold">⚠️ {errors.fecha.message}</p>
+          )}
+        </div>
+
         {/* ── OCR (solo gastos) ── */}
         {!isIngreso && !preview && (
           <div className="grid grid-cols-2 gap-3">
@@ -340,7 +371,7 @@ export default function Registrar() {
 
         <button
           type="submit"
-          disabled={busy || analyzing || negocioLoading || !negocio}
+          disabled={busy || analyzing || negocioLoading || !negocio || !isValid}
           className={`w-full rounded-xl p-4 text-lg font-bold shadow-md transition-all active:scale-[0.98] disabled:opacity-50 ${colorBtn}`}
         >
           {busy ? (

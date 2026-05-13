@@ -15,7 +15,7 @@ interface MesData {
   ingresos: number;
   gastos: number;
   tickets: number;
-  calculos: { isr: number; iva: number; fecha: string }[];
+  calculos: { isr: number; iva: number; fecha: string; tipo: string; version: number }[];
 }
 
 export default function HistorialFiscal() {
@@ -42,7 +42,7 @@ export default function HistorialFiscal() {
           .gte("fecha", desdeStr),
         supabase
           .from("calculos_fiscales")
-          .select("periodo, isr_estimado, iva_estimado, fecha_calculo")
+          .select("periodo, isr_estimado, iva_estimado, fecha_calculo, tipo_declaracion, version")
           .eq("usuario_id", user.id)
           .order("fecha_calculo", { ascending: false }),
       ]);
@@ -65,9 +65,15 @@ export default function HistorialFiscal() {
         if (t.tipo === "INGRESO") m.ingresos += Number(t.monto);
         else m.gastos += Number(t.monto);
       });
-      (calcs ?? []).forEach((c: { periodo: string; isr_estimado: number | string; iva_estimado: number | string; fecha_calculo: string }) => {
+      (calcs ?? []).forEach((c) => {
         const m = ensure(c.periodo);
-        m.calculos.push({ isr: Number(c.isr_estimado), iva: Number(c.iva_estimado), fecha: c.fecha_calculo });
+        m.calculos.push({ 
+          isr: Number(c.isr_estimado), 
+          iva: Number(c.iva_estimado), 
+          fecha: c.fecha_calculo,
+          tipo: c.tipo_declaracion,
+          version: c.version
+        });
       });
 
       // Tickets por mes (lista por carpeta)
@@ -126,16 +132,16 @@ export default function HistorialFiscal() {
           {meses.map((m) => (
             <div key={m.key} className="rounded-2xl bg-card border border-border overflow-hidden">
               <div className="bg-muted px-4 py-2.5">
-                <p className="font-extrabold">{MESES_ES[m.mes - 1]} {m.anio}</p>
+                <p className="font-extrabold">Resumen de {MESES_ES[m.mes - 1]} {m.anio}</p>
               </div>
               <div className="p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-success-light p-3">
-                    <p className="text-xs text-muted-foreground font-semibold">Vendiste</p>
+                    <p className="text-xs text-muted-foreground font-semibold">Total de dinero que entró (Ventas)</p>
                     <p className="font-extrabold text-success">{formatMXN(m.ingresos)}</p>
                   </div>
                   <div className="rounded-xl bg-destructive/10 p-3">
-                    <p className="text-xs text-muted-foreground font-semibold">Gastaste</p>
+                    <p className="text-xs text-muted-foreground font-semibold">Total de dinero que salió (Gastos)</p>
                     <p className="font-extrabold text-destructive">{formatMXN(m.gastos)}</p>
                   </div>
                 </div>
@@ -147,17 +153,35 @@ export default function HistorialFiscal() {
                   </div>
                 )}
 
-                {m.calculos.length > 0 && (
-                  <div className="rounded-xl bg-primary/5 border border-primary/15 p-3 space-y-1.5">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                      <Calculator className="h-4 w-4" /> Cálculos guardados
+                 {m.calculos.length > 0 && (
+                  <div className="rounded-xl bg-primary/5 border border-primary/15 p-4 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-bold text-primary border-b border-primary/10 pb-2">
+                      <Calculator className="h-4 w-4" /> Historial de tus impuestos calculados
                     </div>
-                    {m.calculos.map((c, i) => (
-                      <div key={i} className="text-xs text-muted-foreground flex justify-between">
-                        <span>ISR {formatMXN(c.isr)} · IVA {formatMXN(c.iva)}</span>
-                        <span>{new Date(c.fecha).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
-                      </div>
-                    ))}
+                    <div className="space-y-4">
+                      {m.calculos.map((c, i) => (
+                        <div key={i} className="space-y-1.5 relative">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                              Cálculo del {new Date(c.fecha).toLocaleDateString("es-MX", { day: "numeric", month: "long" })}
+                            </p>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight ${
+                              c.tipo === "normal" 
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" 
+                                : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                            }`}>
+                              {c.tipo === "normal" ? "Normal" : `Complementaria V${c.version}`}
+                            </span>
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-foreground">Impuestos estimados para esta fecha:</p>
+                            <p className="text-xs text-muted-foreground">
+                              Ganancia (ISR): <span className="font-semibold text-primary">{formatMXN(c.isr)}</span> | IVA: <span className="font-semibold text-primary">{formatMXN(c.iva)}</span>
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

@@ -6,12 +6,14 @@ interface QuickActionCardProps {
   label: string;
   to: string;
   variant: "income" | "expense";
+  state?: any;
 }
 
-export function QuickActionCard({ icon: Icon, label, to, variant }: QuickActionCardProps) {
+export function QuickActionCard({ icon: Icon, label, to, variant, state }: QuickActionCardProps) {
   return (
     <Link
       to={to}
+      state={state}
       className={`big-action-btn ${
         variant === "income"
           ? "bg-income-light text-income"

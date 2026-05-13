@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { SpinnerInline } from "@/components/SkeletonCard";
 import { guardarCalculoFiscal } from "@/services/fiscal.service";
 import { handleError } from "@/lib/errors";
+import { verificarElegibilidadDeclaracion } from "@/lib/fiscal-lock";
 
 const HOY = new Date();
 
@@ -86,9 +87,8 @@ function FilaMovimiento({
 
   return (
     <div
-      className={`rounded-xl border bg-card p-3 transition-all ${
-        invalida ? "border-destructive bg-destructive/5" : "border-border"
-      }`}
+      className={`rounded-xl border bg-card p-3 transition-all ${invalida ? "border-destructive bg-destructive/5" : "border-border"
+        }`}
     >
       <div className="flex items-center gap-3">
         {/* descripción */}
@@ -118,9 +118,8 @@ function FilaMovimiento({
                       setEditando(false);
                     }
                   }}
-                  className={`w-28 rounded-lg border px-2 py-1 text-sm font-bold outline-none focus:ring-2 bg-background ${
-                    error ? "border-destructive focus:ring-destructive/40" : `border-input ${ring}`
-                  }`}
+                  className={`w-28 rounded-lg border px-2 py-1 text-sm font-bold outline-none focus:ring-2 bg-background ${error ? "border-destructive focus:ring-destructive/40" : `border-input ${ring}`
+                    }`}
                 />
                 <button onClick={confirmar} className="rounded-lg bg-primary p-1 text-primary-foreground">
                   <Check className="h-3 w-3" />
@@ -192,11 +191,10 @@ function ReporteDescriptivo({ r, periodo }: { r: ResumenFiscal; periodo: string 
     bloques.push({
       emoji: "🧾",
       titulo: "Lo que gastaste (tus compras)",
-      texto: `Gastaste ${formatMXN(r.gastosTotal)} en compras para tu negocio. De eso, ${formatMXN(r.ivaAcreditable)} corresponden a IVA de compras con factura, lo cual te ayuda a pagar menos IVA.${
-        r.gastosTotal - r.ivaAcreditable > 0
+      texto: `Gastaste ${formatMXN(r.gastosTotal)} en compras para tu negocio. De eso, ${formatMXN(r.ivaAcreditable)} corresponden a IVA de compras con factura, lo cual te ayuda a pagar menos IVA.${r.gastosTotal - r.ivaAcreditable > 0
           ? ` El resto (${formatMXN(r.gastosSubtotal)}) son tus costos reales.`
           : ""
-      }`,
+        }`,
       color: "border-l-orange-400 bg-orange-50 dark:bg-orange-900/10",
     });
   }
@@ -217,8 +215,8 @@ function ReporteDescriptivo({ r, periodo }: { r: ResumenFiscal; periodo: string 
     r.ivaAPagar < 0
       ? `Pagaste más IVA del que cobraste. El gobierno te debe ${formatMXN(Math.abs(r.ivaAPagar))}. Eso se llama "saldo a favor". Puedes usarlo para compensar futuros pagos.`
       : r.ivaAPagar === 0
-      ? "El IVA que cobraste a tus clientes es exactamente igual al que pagaste en compras. Estás a mano con el gobierno, no debes nada de IVA. 🤝"
-      : `Cobraste ${formatMXN(r.ivaCobrado)} de IVA a tus clientes. Luego pagaste ${formatMXN(r.ivaAcreditable)} de IVA en compras con factura. La diferencia (${formatMXN(r.ivaAPagar)}) es lo que tienes que entregar al SAT.`;
+        ? "El IVA que cobraste a tus clientes es exactamente igual al que pagaste en compras. Estás a mano con el gobierno, no debes nada de IVA. 🤝"
+        : `Cobraste ${formatMXN(r.ivaCobrado)} de IVA a tus clientes. Luego pagaste ${formatMXN(r.ivaAcreditable)} de IVA en compras con factura. La diferencia (${formatMXN(r.ivaAPagar)}) es lo que tienes que entregar al SAT.`;
 
   bloques.push({
     emoji: "🏷️",
@@ -242,35 +240,43 @@ function ReporteDescriptivo({ r, periodo }: { r: ResumenFiscal; periodo: string 
           key={b.titulo}
           className={`rounded-2xl border-l-4 p-4 ${b.color}`}
         >
-          <p className="font-extrabold text-sm mb-1">
+          <p className="mb-1 text-sm font-extrabold">
             {b.emoji} {b.titulo}
           </p>
           <p className="text-sm leading-relaxed text-foreground/80">{b.texto}</p>
         </div>
       ))}
-    </div>
+    </div >
   );
 }
 
 /* ─── Página principal ──────────────────────────────────────────── */
 export default function Declaracion() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { negocio } = useNegocio();
   const [paso, setPaso] = useState(0);
+
+  const { anio: stateAnio, mes: stateMes } = (location.state as any) || {};
+
   const [mes, setMes] = useState(() => {
     const p = searchParams.get("mes");
-    return p ? Number(p) : HOY.getMonth() + 1;
+    if (p) return Number(p);
+    if (stateMes) return stateMes;
+    return HOY.getMonth() + 1;
   });
   const [anio, setAnio] = useState(() => {
     const p = searchParams.get("anio");
-    return p ? Number(p) : HOY.getFullYear();
+    if (p) return Number(p);
+    if (stateAnio) return stateAnio;
+    return HOY.getFullYear();
   });
   const [guardando, setGuardando] = useState(false);
 
   /* datos remotos */
-  const { movs: movsRemotos, loading } = useResumenMes(anio);
+  const { movs: movsRemotos, loading } = useResumenMes(anio, mes);
 
   /* copias locales editables */
   const [ingresos, setIngresos] = useState<MovLocal[]>([]);
@@ -334,7 +340,7 @@ export default function Declaracion() {
 
   /* validación de pasos */
   const ingresosInvalidos = ingresos.filter((m) => m.monto <= 0 || !isFinite(m.monto));
-  const gastosInvalidos   = gastos.filter((m) => m.monto <= 0 || !isFinite(m.monto));
+  const gastosInvalidos = gastos.filter((m) => m.monto <= 0 || !isFinite(m.monto));
 
   const avanzarPaso1 = () => {
     if (ingresosInvalidos.length > 0) {
@@ -388,9 +394,8 @@ export default function Declaracion() {
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
-            className={`h-2 w-6 rounded-full transition-colors ${
-              i <= paso ? "bg-primary" : "bg-muted"
-            }`}
+            className={`h-2 w-6 rounded-full transition-colors ${i <= paso ? "bg-primary" : "bg-muted"
+              }`}
           />
         ))}
       </div>
@@ -438,7 +443,16 @@ export default function Declaracion() {
         </div>
       </label>
       <button
-        onClick={() => setPaso(1)}
+        onClick={() => {
+          const { elegible } = verificarElegibilidadDeclaracion(new Date(anio, mes - 1, 1));
+          if (!elegible) {
+            toast.error("Este periodo aún no ha concluido. Solo puedes declarar meses terminados.", {
+              description: "El SAT requiere que el mes esté cerrado para emitir la declaración."
+            });
+            return;
+          }
+          setPaso(1);
+        }}
         className="w-full rounded-2xl bg-primary p-4 text-primary-foreground font-bold text-base flex items-center justify-center gap-2 active:scale-[0.99]"
       >
         Empezar <ArrowRight className="h-5 w-5" />

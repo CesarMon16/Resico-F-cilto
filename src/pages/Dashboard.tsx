@@ -24,11 +24,13 @@ const HOY = new Date();
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { negocio, loading: negocioLoading } = useNegocio();
   const { permission, subscribe } = usePushNotifications();
   const [nombre, setNombre] = useState("");
   const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [anio, setAnio] = useState(HOY.getFullYear());
+  const [mes, setMes] = useState(HOY.getMonth() + 1);
 
   useEffect(() => {
     if (!user) return;
@@ -45,34 +47,56 @@ export default function Dashboard() {
         .eq("negocio_id", negocio.id)
         .order("fecha", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(500);
+        .limit(1000);
       setMovs(data ?? []);
     })();
   }, [negocio]);
 
-  const { recientes, resumen } = useMemo(() => {
-    // Agregación anual por defecto
-    const inicioAnio = `${anio}-01-01`;
-    const finAnio = `${anio}-12-31`;
-    const delPeriodo = movs.filter((m) => m.fecha >= inicioAnio && m.fecha <= finAnio);
-    const resumen = calcularResumen(delPeriodo);
-    const recientes: Transaction[] = movs.slice(0, 4).map((t) => ({
+  const { recientes, resumen, anioProgreso } = useMemo(() => {
+    const mesStr = String(mes).padStart(2, "0");
+    const inicioMes = `${anio}-${mesStr}-01`;
+    const finMes = `${anio}-${mesStr}-31`;
+    
+    const delAnio = movs.filter((m) => m.fecha >= `${anio}-01-01` && m.fecha <= `${anio}-12-31`);
+    const delMes = movs.filter((m) => m.fecha >= inicioMes && m.fecha <= finMes);
+    
+    const resumen = calcularResumen(delMes);
+    const ingresosAnuales = delAnio.filter(m => m.tipo === "ingreso").reduce((acc, m) => acc + Number(m.monto), 0);
+    
+    const recientes: Transaction[] = delMes.slice(0, 5).map((t) => ({
       id: t.id,
       tipo: t.tipo,
       monto: Number(t.monto),
       descripcion: t.descripcion ?? "",
       fecha: new Date(t.fecha + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
     }));
-    return { recientes, resumen };
-  }, [movs, anio]);
+    
+    return { 
+      recientes, 
+      resumen, 
+      anioProgreso: {
+        monto: ingresosAnuales,
+        porcentaje: (ingresosAnuales / 3500000) * 100 // Límite RESICO
+      }
+    };
+  }, [movs, anio, mes]);
 
   if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
 
-  const periodoLabel = `Ejercicio ${anio}`;
+  const periodoLabel = `${MESES_ES[mes - 1]} ${anio}`;
   const anios = [HOY.getFullYear() - 1, HOY.getFullYear(), HOY.getFullYear() + 1];
 
+  const cambiarMes = (diff: number) => {
+    let newMes = mes + diff;
+    let newAnio = anio;
+    if (newMes > 12) { newMes = 1; newAnio++; }
+    if (newMes < 1) { newMes = 12; newAnio--; }
+    setMes(newMes);
+    setAnio(newAnio);
+  };
+
   return (
-    <div className="px-4 pt-6 space-y-6">
+    <div className="px-4 pt-6 space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-muted-foreground text-sm">{saludo()} 👋</p>
@@ -81,8 +105,31 @@ export default function Dashboard() {
         <Avisos />
       </div>
 
+      {/* Selector de Periodo Premium */}
+      <div className="flex items-center justify-between bg-card rounded-2xl border p-2 shadow-sm">
+        <button onClick={() => cambiarMes(-1)} className="p-2 hover:bg-muted rounded-xl transition-colors">
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div className="flex flex-col items-center">
+          <span className="text-sm font-bold capitalize">{MESES_ES[mes-1]}</span>
+          <div className="flex items-center gap-1">
+            <select 
+              value={anio} 
+              onChange={(e) => setAnio(Number(e.target.value))}
+              className="text-[10px] font-bold text-muted-foreground bg-transparent border-none p-0 h-auto focus:ring-0 appearance-none text-center cursor-pointer"
+            >
+              {anios.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <ChevronDown className="h-2 w-2 text-muted-foreground" />
+          </div>
+        </div>
+        <button onClick={() => cambiarMes(1)} className="p-2 hover:bg-muted rounded-xl transition-colors">
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
+
       {permission === "default" && (
-        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-primary/20 p-2">
               <Sparkles className="h-5 w-5 text-primary" />
@@ -92,12 +139,7 @@ export default function Dashboard() {
               <p className="text-[10px] text-muted-foreground">Te avisaremos antes de tu declaración.</p>
             </div>
           </div>
-          <button 
-            onClick={subscribe}
-            className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm active:scale-95"
-          >
-            Activar
-          </button>
+          <button onClick={subscribe} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm active:scale-95">Activar</button>
         </div>
       )}
 
@@ -105,6 +147,7 @@ export default function Dashboard() {
 
       <Link
         to="/declaracion"
+        state={{ anio, mes }}
         className="flex items-center justify-between rounded-2xl bg-primary p-4 text-primary-foreground shadow-md active:scale-[0.99]"
       >
         <div className="flex items-center gap-3">
@@ -117,74 +160,50 @@ export default function Dashboard() {
         <span>›</span>
       </Link>
 
-      {/* Filtros mes/año */}
-      <div className="flex gap-2">
-        <select
-          value={anio}
-          onChange={(e) => setAnio(Number(e.target.value))}
-          className="w-full rounded-xl border border-input bg-card p-3 font-semibold outline-none focus:ring-2 ring-ring"
-        >
-          {anios.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
-      </div>
-
       <SummaryCard ingresos={resumen.ingresosTotal} gastos={resumen.gastosTotal} periodo={periodoLabel} />
 
       <div>
         <h2 className="mb-3 font-bold text-lg">¿Qué hiciste hoy?</h2>
         <div className="grid grid-cols-2 gap-4">
-          <QuickActionCard icon={TrendingUp} label="Hoy vendí" to="/registrar/ingreso" variant="income" />
-          <QuickActionCard icon={TrendingDown} label="Hoy compré" to="/registrar/gasto" variant="expense" />
+          <QuickActionCard 
+            icon={TrendingUp} 
+            label="Hoy vendí" 
+            to="/registrar/ingreso" 
+            variant="income" 
+            state={{ defaultAnio: anio, defaultMes: mes }}
+          />
+          <QuickActionCard 
+            icon={TrendingDown} 
+            label="Hoy compré" 
+            to="/registrar/gasto" 
+            variant="expense" 
+            state={{ defaultAnio: anio, defaultMes: mes }}
+          />
         </div>
-        <a
-          href="/expediente"
-          className="mt-3 flex items-center justify-between rounded-2xl border border-dashed border-border bg-card p-4 transition-colors hover:bg-muted"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📸</span>
-            <div>
-              <p className="font-bold">Mi expediente</p>
-              <p className="text-xs text-muted-foreground">Guarda fotos de tickets y facturas</p>
-            </div>
-          </div>
-          <span className="text-muted-foreground">›</span>
-        </a>
       </div>
 
-      {/* Tarjetas fiscales */}
-      <div>
-        <h2 className="mb-3 font-bold text-lg">Tus impuestos estimados</h2>
+      {/* Tarjetas fiscales del mes */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg">Impuestos estimados</h2>
+          <div className="px-2 py-1 bg-muted rounded-lg text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Periodo mensual</div>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <FiscalCard label="Utilidad" value={resumen.utilidad} tone="primary" />
           <FiscalCard label="Total a pagar" value={resumen.totalImpuestos} tone="warning" />
-          <FiscalCard
-            label={`ISR RESICO (${(resumen.tasaISR * 100).toFixed(2)}%)`}
-            value={resumen.isr}
-            tone="default"
-          />
-          <FiscalCard
-            label="IVA a pagar"
-            value={resumen.ivaAPagar}
-            tone={resumen.ivaAPagar < 0 ? "success" : "default"}
-            note={resumen.ivaAPagar < 0 ? "Saldo a favor" : undefined}
-          />
-          <FiscalCard label="IVA cobrado" value={resumen.ivaCobrado} tone="muted" />
-          <FiscalCard label="IVA acreditable" value={resumen.ivaAcreditable} tone="muted" />
+          <FiscalCard label={`ISR (${(resumen.tasaISR * 100).toFixed(2)}%)`} value={resumen.isr} tone="default" />
+          <FiscalCard label="IVA a pagar" value={resumen.ivaAPagar} tone={resumen.ivaAPagar < 0 ? "success" : "default"} note={resumen.ivaAPagar < 0 ? "Saldo a favor" : undefined} />
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Cálculo estimado. No sustituye la asesoría de un contador ni la información oficial del SAT.
-        </p>
       </div>
 
       <div>
-        <h2 className="mb-3 font-bold text-lg">Últimos movimientos</h2>
+        <h2 className="mb-3 font-bold text-lg">Movimientos del periodo</h2>
         <div className="space-y-3">
           {recientes.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-6">
-              Aún no registras nada en {periodoLabel}.
-            </p>
+            <div className="text-center py-10 bg-muted/30 rounded-3xl border border-dashed">
+              <Calendar className="h-8 w-8 mx-auto text-muted-foreground opacity-20 mb-2" />
+              <p className="text-sm text-muted-foreground">No hay registros en {periodoLabel}</p>
+            </div>
           ) : (
             recientes.map((t) => <TransactionItem key={t.id} {...t} />)
           )}

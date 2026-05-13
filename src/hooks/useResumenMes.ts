@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useNegocio } from "./useNegocio";
 import { calcularResumen, type Movimiento, type ResumenFiscal } from "@/lib/fiscal";
+import { getRangoPeriodo } from "@/lib/fiscal-lock";
 import type { Tables } from "@/integrations/supabase/types";
 
-export function useResumenMes(anio: number) {
+export function useResumenMes(anio: number, mes?: number) {
   const { negocio } = useNegocio();
   const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,16 +17,25 @@ export function useResumenMes(anio: number) {
     let cancel = false;
     (async () => {
       setLoading(true);
-      // Refactorizado para reporte anual/histórico ignorando límites mensuales
-      const inicioAnio = `${anio}-01-01`;
-      const finAnio = `${anio}-12-31`;
+      setMovs([]); // Resetear para evitar datos fantasmas del mes anterior
+      let inicio: string;
+      let fin: string;
+
+      if (mes) {
+        const rango = getRangoPeriodo(anio, mes);
+        inicio = rango.start;
+        fin = rango.end;
+      } else {
+        inicio = `${anio}-01-01`;
+        fin = `${anio}-12-31`;
+      }
       
       const { data } = await supabase
         .from("transacciones")
         .select("id, tipo, monto, fecha, con_factura, descripcion")
         .eq("negocio_id", negocio.id)
-        .gte("fecha", inicioAnio)
-        .lte("fecha", finAnio)
+        .gte("fecha", inicio)
+        .lte("fecha", fin)
         .order("fecha", { ascending: false });
 
       const { data: config } = await supabase
@@ -43,7 +53,7 @@ export function useResumenMes(anio: number) {
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [negocio, anio]);
+  }, [negocio, anio, mes]);
 
   return { movs, resumen, loading };
 }
