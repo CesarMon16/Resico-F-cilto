@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   Loader2,
+  Lock,
   Pencil,
   Plus,
   Save,
@@ -34,7 +35,7 @@ import { verificarElegibilidadDeclaracion } from "@/lib/fiscal-lock";
 const HOY = new Date();
 
 /* ─── Tipos locales ─────────────────────────────────────────────── */
-type MovLocal = Movimiento & { id: string; descripcion?: string | null };
+type MovLocal = Movimiento & { id: string; descripcion?: string | null; esInmutable?: boolean };
 
 /* ─── Helpers ───────────────────────────────────────────────────── */
 function uid() {
@@ -56,6 +57,7 @@ function FilaMovimiento({
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(String(mov.monto));
   const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const validarValor = (v: string): string => {
     const n = parseFloat(v.replace(/,/g, ""));
@@ -149,22 +151,40 @@ function FilaMovimiento({
 
         {/* acciones */}
         <div className="flex gap-1 shrink-0">
-          {!editando && (
-            <button
-              onClick={() => setEditando(true)}
-              className="rounded-lg p-2 hover:bg-muted transition-colors"
-              title="Editar monto"
-            >
-              <Pencil className="h-4 w-4 text-muted-foreground" />
-            </button>
+          {mov.esInmutable ? (
+            <div className="p-2 text-muted-foreground/50" title="Registro inmutable (Periodo Declarado)">
+              <Lock className="h-4 w-4" />
+            </div>
+          ) : (
+            <>
+              {!editando && (
+                <button
+                  onClick={() => setEditando(true)}
+                  className="rounded-lg p-2 hover:bg-muted transition-colors"
+                  title="Editar monto"
+                >
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+              {confirmDelete ? (
+                <button
+                  onClick={() => onDelete(mov.id)}
+                  className="rounded-lg p-2 bg-destructive text-white transition-colors text-xs font-bold px-3"
+                  title="Confirmar eliminación"
+                >
+                  ¿Eliminar?
+                </button>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="rounded-lg p-2 hover:bg-destructive/10 transition-colors"
+                  title="Eliminar"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </button>
+              )}
+            </>
           )}
-          <button
-            onClick={() => onDelete(mov.id)}
-            className="rounded-lg p-2 hover:bg-destructive/10 transition-colors"
-            title="Eliminar"
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </button>
         </div>
       </div>
     </div>
@@ -276,7 +296,7 @@ export default function Declaracion() {
   const [guardando, setGuardando] = useState(false);
 
   /* datos remotos */
-  const { movs: movsRemotos, loading } = useResumenMes(anio, mes);
+  const { movs: movsRemotos, loading, isDeclarado } = useResumenMes(anio, mes);
 
   /* copias locales editables */
   const [ingresos, setIngresos] = useState<MovLocal[]>([]);
@@ -284,13 +304,14 @@ export default function Declaracion() {
 
   /* sincronizar cuando cambian los datos remotos o el periodo */
   useEffect(() => {
+    const arr = (movsRemotos as MovLocal[]).map(m => ({ ...m, esInmutable: isDeclarado }));
     setIngresos(
-      (movsRemotos as MovLocal[]).filter((m) => m.tipo === "INGRESO")
+      arr.filter((m) => m.tipo === "INGRESO")
     );
     setGastos(
-      (movsRemotos as MovLocal[]).filter((m) => m.tipo === "GASTO")
+      arr.filter((m) => m.tipo === "GASTO")
     );
-  }, [movsRemotos]);
+  }, [movsRemotos, isDeclarado]);
 
   /* resumen recalculado en tiempo real con datos editados */
   const resumen = useMemo<ResumenFiscal>(() => {

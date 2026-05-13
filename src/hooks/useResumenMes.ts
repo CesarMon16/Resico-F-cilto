@@ -11,6 +11,7 @@ export function useResumenMes(anio: number, mes?: number) {
   const [movs, setMovs] = useState<Tables<"transacciones">[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumen, setResumen] = useState<ResumenFiscal | null>(null);
+  const [isDeclarado, setIsDeclarado] = useState(false);
 
   useEffect(() => {
     if (!negocio) return;
@@ -46,16 +47,28 @@ export function useResumenMes(anio: number, mes?: number) {
         
       const ivaRate = config?.iva_rate ? Number(config.iva_rate) : 0.16;
 
+      let checkDeclarado = false;
+      if (mes) {
+        const periodoStr = `${anio}-${String(mes).padStart(2, "0")}`;
+        const { count } = await supabase
+          .from("calculos_fiscales")
+          .select("*", { count: 'exact', head: true })
+          .eq("negocio_id", negocio.id)
+          .eq("periodo", periodoStr);
+        checkDeclarado = (count ?? 0) > 0;
+      }
+
       if (cancel) return;
       const m = data ?? [];
       setMovs(m);
       setResumen(calcularResumen(m as Movimiento[], ivaRate));
+      setIsDeclarado(checkDeclarado);
       setLoading(false);
     })();
     return () => { cancel = true; };
   }, [negocio, anio, mes]);
 
-  return { movs, resumen, loading };
+  return { movs, resumen, loading, isDeclarado };
 }
 
 export function useAvisos() {
