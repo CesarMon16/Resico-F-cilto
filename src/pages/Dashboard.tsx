@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import {
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { SummaryCard } from "@/components/SummaryCard";
 import { QuickActionCard } from "@/components/QuickActionCard";
 import { TransactionItem, Transaction } from "@/components/TransactionItem";
@@ -9,7 +17,7 @@ import { SaludFinanciera } from "@/components/dashboard/SaludFinanciera";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
-import { calcularResumen, formatMXN, MESES_ES, type Movimiento } from "@/lib/fiscal";
+import { calcularResumen, formatMXN, MESES_ES } from "@/lib/fiscal";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -24,7 +32,6 @@ const HOY = new Date();
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { negocio, loading: negocioLoading } = useNegocio();
   const { permission, subscribe } = usePushNotifications();
   const [nombre, setNombre] = useState("");
