@@ -21,10 +21,10 @@ import Historial from "./pages/Historial";
 import Declaracion from "./pages/Declaracion";
 import HistorialFiscal from "./pages/HistorialFiscal";
 import ContadorCliente from "./pages/ContadorCliente";
-import Expediente from "./pages/Expediente";
 import Creditos from "./pages/Creditos";
 import Contador from "./pages/Contador";
 import Perfil from "./pages/Perfil";
+import DocumentosFiscales from "./pages/DocumentosFiscales";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/AdminDashboard";
 
@@ -51,7 +51,6 @@ const App = () => (
                     <Route path="/registrar/:tipo" element={<Registrar />} />
                     <Route path="/historial" element={<Historial />} />
                     <Route path="/declaracion" element={<Declaracion />} />
-                    <Route path="/expediente" element={<Expediente />} />
                     <Route path="/creditos" element={<Creditos />} />
                     {/* Rutas de contador protegidas por rol */}
                     <Route element={<RoleRoute allow={["CONTADOR", "ADMIN"]} />}>
@@ -65,6 +64,7 @@ const App = () => (
                     <Route path="/historial-fiscal" element={<HistorialFiscal />} />
                     <Route path="/perfil" element={<Perfil />} />
                     <Route path="/perfil/fiscal" element={<PerfilFiscal />} />
+                    <Route path="/perfil/documentos-fiscales" element={<DocumentosFiscales />} />
                   </Route>
                 </Route>
               </Route>

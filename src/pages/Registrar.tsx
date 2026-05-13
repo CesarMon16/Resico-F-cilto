@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Navigate, useLocation } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle } from "lucide-react";
+import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle, CalendarDays } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNegocio } from "@/hooks/useNegocio";
 import { TransaccionesService } from "@/services/transacciones.service";
-import { OcrService } from "@/services/ocr.service";
 import { handleError } from "@/lib/errors";
 import { procesarImagenTicket, type OCRResult } from "@/lib/ocrEngine";
 import { CameraOverlay } from "@/components/CameraOverlay";
@@ -65,7 +64,6 @@ export default function Registrar() {
   const [analyzing, setAnalyzing] = useState(false);
   const [ocrStep, setOcrStep] = useState<string>("");
   const [preview, setPreview] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -138,43 +136,32 @@ export default function Registrar() {
     }
   };
 
+
   const procesarOCR = async (file: File) => {
     setShowCamera(false);
     setPreview(URL.createObjectURL(file));
-    setSelectedFile(file);
     setAnalyzing(true);
     setOcrResult(null);
 
     try {
-      setOcrStep("Analizando imagen con IA...");
-      await new Promise(r => setTimeout(r, 800));
+      const datos = await procesarImagenTicket(file, (status) => {
+        setOcrStep(status);
+      });
 
-      const datos = await procesarImagenTicket(file);
-      
-      setOcrStep("Extrayendo montos...");
-      await new Promise(r => setTimeout(r, 600));
-
-      if (datos.monto_detectado) {
-        setValue("monto", datos.monto_detectado, { shouldValidate: true });
+      if (datos.monto_total > 0) {
+        setValue("monto", datos.monto_total, { shouldValidate: true });
       }
 
-      // Para gastos, sugerimos el RFC si existe
-      if (!isIngreso && datos.rfc_emisor) {
-        setValue("concepto", `Gasto detectado (RFC: ${datos.rfc_emisor})`, { shouldValidate: true });
-      }
-
-      if (datos.fecha_emision) {
-        setValue("fecha", datos.fecha_emision.split("T")[0], { shouldValidate: true });
+      if (datos.concepto) {
+        setValue("concepto", datos.concepto, { shouldValidate: true });
       }
 
       setOcrResult(datos);
-      toast.success("¡Leímos tu ticket con éxito! 🧐");
+      toast.success("¡Datos extraídos!");
     } catch (err: any) {
-      console.error(err);
-      toast.error("No pudimos leer el ticket. Puedes escribir los datos tú mismo.");
+      toast.error("No se pudo leer el ticket");
     } finally {
       setAnalyzing(false);
-      setOcrStep("");
     }
   };
 
@@ -233,22 +220,13 @@ export default function Registrar() {
             )}
             {ocrResult && !analyzing && (
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-4 pt-10 text-white">
-                <p className="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">Detectamos esto:</p>
                 <div className="flex items-center gap-2">
-                  {ocrResult.confidence_score >= 0.9 ? (
-                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30 font-bold">
-                      <Check className="h-3 w-3" /> Todo parece correcto ({Math.round(ocrResult.confidence_score * 100)}%)
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30 font-bold">
-                      <AlertCircle className="h-3 w-3" /> Revisa los datos
-                    </div>
-                  )}
-                  {ocrResult.rfc_emisor && (
-                    <div className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">
-                      RFC: {ocrResult.rfc_emisor}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30 font-bold">
+                    <Check className="h-3 w-3" /> Datos extraídos: ${ocrResult.monto_total}
+                  </div>
+                  <div className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">
+                    {ocrResult.concepto}
+                  </div>
                 </div>
               </div>
             )}
@@ -309,12 +287,12 @@ export default function Registrar() {
               <span />
             )}
             <p
-              className={`text-xs ${conceptoWatch.length > 90
+              className={`text-xs ${(conceptoWatch?.length || 0) > 90
                   ? "text-destructive font-semibold"
                   : "text-muted-foreground"
                 }`}
             >
-              {conceptoWatch.length}/100
+              {(conceptoWatch?.length || 0)}/100
             </p>
           </div>
         </div>
@@ -322,12 +300,14 @@ export default function Registrar() {
         {/* ── Fecha ── */}
         <div>
           <label className="mb-2 block font-bold">
-            Fecha de la operación <span className="text-destructive">*</span>
+            ¿Cuándo fue?{" "}
+            <span className="text-muted-foreground font-normal">(puedes cambiarla)</span>
           </label>
           <div className="relative">
-            <Calendar className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <CalendarDays className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="date"
+              max={new Date().toISOString().split("T")[0]}
               {...register("fecha")}
               className={`w-full rounded-xl border p-4 pl-12 text-base outline-none focus:ring-2 bg-card transition-colors ${errors.fecha
                   ? "border-destructive focus:ring-destructive/40"
@@ -335,8 +315,12 @@ export default function Registrar() {
                 }`}
             />
           </div>
-          {errors.fecha && (
+          {errors.fecha ? (
             <p className="mt-1.5 text-xs text-destructive font-semibold">⚠️ {errors.fecha.message}</p>
+          ) : (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              📅 ¿Fue en otro mes o año? Cambia la fecha aquí.
+            </p>
           )}
         </div>
 

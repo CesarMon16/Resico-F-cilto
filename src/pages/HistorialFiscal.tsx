@@ -53,7 +53,7 @@ export default function HistorialFiscal() {
         let m = map.get(key);
         if (!m) {
           const [a, mm] = key.split("-").map(Number);
-          m = { key, mes: mm, anio: a, ingresos: 0, gastos: 0, tickets: 0, calculos: [] };
+          m = { key, mes: mm, anio: a, ingresos: 0, gastos: 0, calculos: [] };
           map.set(key, m);
         }
         return m;
@@ -76,23 +76,6 @@ export default function HistorialFiscal() {
         });
       });
 
-      // Tickets por mes (lista por carpeta)
-      try {
-        for (let i = 0; i < 12; i++) {
-          const d = new Date();
-          d.setMonth(d.getMonth() - i);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-          const folder = `${user.id}/${key}`;
-          const { data } = await supabase.storage.from("tickets").list(folder, { limit: 100 });
-          const count = (data ?? []).filter((f) => f.name && !f.name.startsWith(".")).length;
-          if (count > 0) {
-            const m = ensure(key);
-            m.tickets = count;
-          }
-        }
-      } catch {
-        // silencioso
-      }
 
       const arr = Array.from(map.values()).sort((a, b) => (a.key < b.key ? 1 : -1));
       if (!cancel) {
@@ -146,12 +129,6 @@ export default function HistorialFiscal() {
                   </div>
                 </div>
 
-                {m.tickets > 0 && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>{m.tickets} ticket{m.tickets !== 1 ? "s" : ""} guardado{m.tickets !== 1 ? "s" : ""}</span>
-                  </div>
-                )}
 
                  {m.calculos.length > 0 && (
                   <div className="rounded-xl bg-primary/5 border border-primary/15 p-4 space-y-4">
@@ -185,7 +162,7 @@ export default function HistorialFiscal() {
                   </div>
                 )}
 
-                {m.tickets === 0 && m.calculos.length === 0 && m.ingresos === 0 && m.gastos === 0 && (
+                {m.calculos.length === 0 && m.ingresos === 0 && m.gastos === 0 && (
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <FileText className="h-4 w-4" /> Sin actividad este mes.
                   </p>

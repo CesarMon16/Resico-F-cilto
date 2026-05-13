@@ -93,9 +93,6 @@ export function useAvisos() {
       if (hoy.getDate() <= 5) {
         list.push({ id: "resumen-mensual", emoji: "📊", texto: "Tu resumen del mes ya está listo" });
       }
-      if (mesGastos && mesGastos.length > 0) {
-        list.push({ id: "tickets-faltan", emoji: "📸", texto: "Recuerda guardar foto de tus tickets" });
-      }
       if (!cancel) setAvisos(list);
     })();
     return () => { cancel = true; };

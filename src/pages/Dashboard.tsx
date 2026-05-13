@@ -59,25 +59,29 @@ export default function Dashboard() {
     })();
   }, [negocio]);
 
+  const [mes, setMes] = useState<number | "all">(HOY.getMonth() + 1); // 1-12 o "all"
+
   const { recientes, resumen, anioProgreso } = useMemo(() => {
-    const mesStr = String(mes).padStart(2, "0");
-    const inicioMes = `${anio}-${mesStr}-01`;
-    const finMes = `${anio}-${mesStr}-31`;
-    
-    const delAnio = movs.filter((m) => m.fecha >= `${anio}-01-01` && m.fecha <= `${anio}-12-31`);
-    const delMes = movs.filter((m) => m.fecha >= inicioMes && m.fecha <= finMes);
-    
-    const resumen = calcularResumen(delMes);
+    const inicioAnio = `${anio}-01-01`;
+    const finAnio = `${anio}-12-31`;
+    const delAnio = movs.filter((m) => m.fecha >= inicioAnio && m.fecha <= finAnio);
+
+    let delPeriodo = delAnio;
+    // Filtrar por mes si no es "Año completo"
+    if (mes !== "all") {
+      const mesStr = String(mes).padStart(2, "0");
+      delPeriodo = delPeriodo.filter((m) => m.fecha.startsWith(`${anio}-${mesStr}`));
+    }
+
     const ingresosAnuales = delAnio.filter(m => m.tipo === "ingreso").reduce((acc, m) => acc + Number(m.monto), 0);
-    
-    const recientes: Transaction[] = delMes.slice(0, 5).map((t) => ({
+    const resumen = calcularResumen(delPeriodo);
+    const recientes: Transaction[] = delPeriodo.slice(0, 6).map((t) => ({
       id: t.id,
       tipo: t.tipo,
       monto: Number(t.monto),
       descripcion: t.descripcion ?? "",
       fecha: new Date(t.fecha + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
     }));
-    
     return { 
       recientes, 
       resumen, 
@@ -90,8 +94,27 @@ export default function Dashboard() {
 
   if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
 
-  const periodoLabel = `${MESES_ES[mes - 1]} ${anio}`;
-  const anios = [HOY.getFullYear() - 1, HOY.getFullYear(), HOY.getFullYear() + 1];
+  const periodoLabel = mes === "all"
+    ? `Año ${anio}`
+    : `${MESES_ES[(mes as number) - 1]} ${anio}`;
+
+  // Solo años pasados + año actual (sin futuros)
+  const anios = Array.from({ length: 4 }, (_, i) => HOY.getFullYear() - 3 + i);
+
+  // Si el año seleccionado es el actual, solo mostrar meses hasta el mes actual
+  const mesMaximo = anio === HOY.getFullYear() ? HOY.getMonth() + 1 : 12;
+  const mesesOpciones = [
+    { value: "all" as const, label: "Año completo" },
+    ...MESES_ES.slice(0, mesMaximo).map((nombre, i) => ({ value: i + 1, label: nombre })),
+  ];
+
+  const handleAnioChange = (nuevoAnio: number) => {
+    setAnio(nuevoAnio);
+    // Si el mes actual supera el máximo del nuevo año, resetear a "Año completo"
+    if (nuevoAnio === HOY.getFullYear() && mes !== "all" && (mes as number) > HOY.getMonth() + 1) {
+      setMes("all");
+    }
+  };
 
   const cambiarMes = (diff: number) => {
     let newMes = mes + diff;
@@ -166,6 +189,31 @@ export default function Dashboard() {
         </div>
         <span>›</span>
       </Link>
+
+      {/* ── Filtros Mes / Año ── */}
+      <div className="space-y-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Ver periodo</p>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            value={String(mes)}
+            onChange={(e) => setMes(e.target.value === "all" ? "all" : Number(e.target.value))}
+            className="rounded-xl border border-input bg-card p-3 font-semibold text-sm outline-none focus:ring-2 ring-ring"
+          >
+            {mesesOpciones.map((m) => (
+              <option key={String(m.value)} value={String(m.value)}>{m.label}</option>
+            ))}
+          </select>
+          <select
+            value={anio}
+            onChange={(e) => handleAnioChange(Number(e.target.value))}
+            className="rounded-xl border border-input bg-card p-3 font-semibold text-sm outline-none focus:ring-2 ring-ring"
+          >
+            {anios.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <SummaryCard ingresos={resumen.ingresosTotal} gastos={resumen.gastosTotal} periodo={periodoLabel} />
 

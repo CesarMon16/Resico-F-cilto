@@ -74,10 +74,9 @@ export function UserProfileView() {
       {/* Acciones rápidas */}
       <div>
         <SectionTitle>Acciones rápidas</SectionTitle>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <QuickBtn icon={<TrendingUp className="h-5 w-5" />} label="Ingreso" tone="success" onClick={() => navigate("/registrar/ingreso")} />
           <QuickBtn icon={<TrendingDown className="h-5 w-5" />} label="Gasto" tone="danger" onClick={() => navigate("/registrar/gasto")} />
-          <QuickBtn icon={<Camera className="h-5 w-5" />} label="Ticket" tone="primary" onClick={() => navigate("/expediente")} />
         </div>
       </div>
 
@@ -123,7 +122,7 @@ export function UserProfileView() {
         <MenuItem icon={<User className="h-5 w-5" />} label="Mi perfil fiscal" to="/perfil/fiscal" hint="RFC, régimen, datos del SAT" />
         <MenuItem icon={<Store className="h-5 w-5" />} label="Mi actividad" to="/preparar-negocio" hint={negocio?.nombre_negocio ?? "Configura tu actividad"} />
         <MenuItem icon={<BookOpen className="h-5 w-5" />} label="Mi historial fiscal" to="/historial-fiscal" hint="Mes a mes, todo en un lugar" />
-        <MenuItem icon={<FileText className="h-5 w-5" />} label="Mis documentos" to="/expediente" hint="Tickets y comprobantes" />
+        <MenuItem icon={<FileText className="h-5 w-5" />} label="Mis documentos fiscales" to="/perfil/documentos-fiscales" hint="e.firma, CSD, Constancia" />
         <MenuItem icon={<HandCoins className="h-5 w-5" />} label="Créditos y apoyos" to="/creditos" />
       </div>
     </div>
