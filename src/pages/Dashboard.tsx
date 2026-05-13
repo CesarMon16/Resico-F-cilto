@@ -50,13 +50,21 @@ export default function Dashboard() {
     })();
   }, [negocio]);
 
+  const [mes, setMes] = useState<number | "all">(HOY.getMonth() + 1); // 1-12 o "all"
+
   const { recientes, resumen } = useMemo(() => {
-    // Agregación anual por defecto
     const inicioAnio = `${anio}-01-01`;
     const finAnio = `${anio}-12-31`;
-    const delPeriodo = movs.filter((m) => m.fecha >= inicioAnio && m.fecha <= finAnio);
+    let delPeriodo = movs.filter((m) => m.fecha >= inicioAnio && m.fecha <= finAnio);
+
+    // Filtrar por mes si no es "Año completo"
+    if (mes !== "all") {
+      const mesStr = String(mes).padStart(2, "0");
+      delPeriodo = delPeriodo.filter((m) => m.fecha.startsWith(`${anio}-${mesStr}`));
+    }
+
     const resumen = calcularResumen(delPeriodo);
-    const recientes: Transaction[] = movs.slice(0, 4).map((t) => ({
+    const recientes: Transaction[] = delPeriodo.slice(0, 6).map((t) => ({
       id: t.id,
       tipo: t.tipo,
       monto: Number(t.monto),
@@ -64,12 +72,31 @@ export default function Dashboard() {
       fecha: new Date(t.fecha + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
     }));
     return { recientes, resumen };
-  }, [movs, anio]);
+  }, [movs, anio, mes]);
 
   if (!negocioLoading && !negocio) return <Navigate to="/preparar-negocio" replace />;
 
-  const periodoLabel = `Ejercicio ${anio}`;
-  const anios = [HOY.getFullYear() - 1, HOY.getFullYear(), HOY.getFullYear() + 1];
+  const periodoLabel = mes === "all"
+    ? `Año ${anio}`
+    : `${MESES_ES[mes - 1]} ${anio}`;
+
+  // Solo años pasados + año actual (sin futuros)
+  const anios = Array.from({ length: 4 }, (_, i) => HOY.getFullYear() - 3 + i);
+
+  // Si el año seleccionado es el actual, solo mostrar meses hasta el mes actual
+  const mesMaximo = anio === HOY.getFullYear() ? HOY.getMonth() + 1 : 12;
+  const mesesOpciones = [
+    { value: "all" as const, label: "Año completo" },
+    ...MESES_ES.slice(0, mesMaximo).map((nombre, i) => ({ value: i + 1, label: nombre })),
+  ];
+
+  const handleAnioChange = (nuevoAnio: number) => {
+    setAnio(nuevoAnio);
+    // Si el mes actual supera el máximo del nuevo año, resetear a "Año completo"
+    if (nuevoAnio === HOY.getFullYear() && mes !== "all" && (mes as number) > HOY.getMonth() + 1) {
+      setMes("all");
+    }
+  };
 
   return (
     <div className="px-4 pt-6 space-y-6">
@@ -117,17 +144,29 @@ export default function Dashboard() {
         <span>›</span>
       </Link>
 
-      {/* Filtros mes/año */}
-      <div className="flex gap-2">
-        <select
-          value={anio}
-          onChange={(e) => setAnio(Number(e.target.value))}
-          className="w-full rounded-xl border border-input bg-card p-3 font-semibold outline-none focus:ring-2 ring-ring"
-        >
-          {anios.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
+      {/* ── Filtros Mes / Año ── */}
+      <div className="space-y-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Ver periodo</p>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            value={String(mes)}
+            onChange={(e) => setMes(e.target.value === "all" ? "all" : Number(e.target.value))}
+            className="rounded-xl border border-input bg-card p-3 font-semibold text-sm outline-none focus:ring-2 ring-ring"
+          >
+            {mesesOpciones.map((m) => (
+              <option key={String(m.value)} value={String(m.value)}>{m.label}</option>
+            ))}
+          </select>
+          <select
+            value={anio}
+            onChange={(e) => handleAnioChange(Number(e.target.value))}
+            className="rounded-xl border border-input bg-card p-3 font-semibold text-sm outline-none focus:ring-2 ring-ring"
+          >
+            {anios.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <SummaryCard ingresos={resumen.ingresosTotal} gastos={resumen.gastosTotal} periodo={periodoLabel} />
@@ -138,19 +177,6 @@ export default function Dashboard() {
           <QuickActionCard icon={TrendingUp} label="Hoy vendí" to="/registrar/ingreso" variant="income" />
           <QuickActionCard icon={TrendingDown} label="Hoy compré" to="/registrar/gasto" variant="expense" />
         </div>
-        <a
-          href="/expediente"
-          className="mt-3 flex items-center justify-between rounded-2xl border border-dashed border-border bg-card p-4 transition-colors hover:bg-muted"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📸</span>
-            <div>
-              <p className="font-bold">Mi expediente</p>
-              <p className="text-xs text-muted-foreground">Guarda fotos de tickets y facturas</p>
-            </div>
-          </div>
-          <span className="text-muted-foreground">›</span>
-        </a>
       </div>
 
       {/* Tarjetas fiscales */}

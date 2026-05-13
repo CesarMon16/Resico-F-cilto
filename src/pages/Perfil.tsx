@@ -8,8 +8,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { UserProfileView } from "@/components/perfil/UserProfileView";
 import { AccountantProfileView } from "@/components/perfil/AccountantProfileView";
 import { AdminProfileView } from "@/components/perfil/AdminProfileView";
-import { DocumentosGrid } from "@/components/perfil/DocumentosGrid";
 import { SectionTitle } from "@/components/perfil/MenuItem";
+import { FiscalProgress } from "@/components/perfil/FiscalProgress";
 
 export default function Perfil() {
   const navigate = useNavigate();
@@ -80,11 +80,8 @@ export default function Perfil() {
         <AccountantProfileView />
       ) : (
         <>
+          <FiscalProgress />
           <UserProfileView />
-          <div className="mt-8 space-y-4">
-            <SectionTitle>Mis documentos</SectionTitle>
-            <DocumentosGrid />
-          </div>
         </>
       )
       }

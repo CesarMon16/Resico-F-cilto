@@ -6,6 +6,7 @@ import {
   Pencil,
   Trash2,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +14,16 @@ import { useNegocio } from "@/hooks/useNegocio";
 import { formatMXN } from "@/lib/fiscal";
 import { handleError } from "@/lib/errors";
 import type { Tables } from "@/integrations/supabase/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /* ─── Tipos ─────────────────────────────────────────────────────── */
 interface Transaction {
@@ -42,8 +53,8 @@ function FilaTx({
   const [desc, setDesc] = useState(tx.descripcion);
   const [fecha, setFecha] = useState(tx.fecha);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   const colorRing = isIngreso ? "focus:ring-green-400" : "focus:ring-rose-400";
   const colorText = isIngreso ? "text-green-600" : "text-rose-600";
@@ -76,12 +87,16 @@ function FilaTx({
     return "";
   };
 
-  const confirmar = async () => {
+  const iniciarGuardado = () => {
     const err = validarCampos();
     if (err) {
       toast.error(err);
       return;
     }
+    setShowSaveConfirm(true);
+  };
+
+  const confirmarGuardado = async () => {
     const n = parseFloat(monto.replace(/,/g, ""));
     setSaving(true);
     try {
@@ -89,17 +104,13 @@ function FilaTx({
       setEditando(false);
     } finally {
       setSaving(false);
+      setShowSaveConfirm(false);
     }
   };
 
-  const pedirConfirmDelete = () => {
-    setConfirmDelete(true);
-    timerRef.current = setTimeout(() => setConfirmDelete(false), 3000);
-  };
-
-  const confirmarDelete = async () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+  const ejecutarDelete = async () => {
     await onDelete(tx.id);
+    setShowDeleteConfirm(false);
   };
 
   return (
@@ -204,7 +215,7 @@ function FilaTx({
 
           <div className="flex gap-2 pt-1">
             <button
-              onClick={confirmar}
+              onClick={iniciarGuardado}
               disabled={saving}
               className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground flex items-center justify-center gap-1.5 disabled:opacity-60"
             >
@@ -254,26 +265,58 @@ function FilaTx({
             >
               <Pencil className="h-4 w-4 text-muted-foreground" />
             </button>
-            {confirmDelete ? (
-              <button
-                onClick={confirmarDelete}
-                className="rounded-xl p-2 bg-destructive text-white transition-colors text-xs font-bold px-3"
-                title="Confirmar eliminación"
-              >
-                ¿Eliminar?
-              </button>
-            ) : (
-              <button
-                onClick={pedirConfirmDelete}
-                className="rounded-xl p-2 hover:bg-destructive/10 transition-colors"
-                title="Eliminar"
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </button>
-            )}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="rounded-xl p-2 hover:bg-destructive/10 transition-colors"
+              title="Eliminar"
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </button>
           </div>
         </div>
       )}
+
+      {/* ── AlertDialog: Confirmar Eliminación ── */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              ¿Eliminar movimiento?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se borrará permanentemente de tu historial fiscal.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, mantener</AlertDialogCancel>
+            <AlertDialogAction onClick={ejecutarDelete} className="bg-destructive text-white hover:bg-destructive/90">
+              Sí, eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── AlertDialog: Confirmar Edición ── */}
+      <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" />
+              ¿Guardar cambios?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que los nuevos datos (${Number(monto).toLocaleString("es-MX")}) son correctos? Esto actualizará tu historial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Revisar de nuevo</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarGuardado}>
+              Sí, actualizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
