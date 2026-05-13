@@ -382,7 +382,7 @@ export default function Declaracion() {
         }
         className="flex items-center gap-2 text-muted-foreground font-semibold"
       >
-        <ArrowLeft className="h-5 w-5" /> Atrás
+        <ArrowLeft className="h-5 w-5" /> Regresar
       </button>
       <div className="flex gap-1.5">
         {[0, 1, 2, 3].map((i) => (

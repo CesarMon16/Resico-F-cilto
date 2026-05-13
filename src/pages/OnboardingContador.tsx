@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +45,10 @@ export default function OnboardingContador() {
   }
 
   return (
-    <div className="px-4 pt-8 space-y-6">
+    <div className="px-4 pt-8 space-y-6 animate-slide-up">
+      <button onClick={() => nav(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
+        <ArrowLeft className="h-5 w-5" /> Regresar
+      </button>
       <div>
         <p className="text-3xl">🧮</p>
         <h1 className="text-2xl font-extrabold mt-2">Cuéntanos un poco de ti</h1>

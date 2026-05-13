@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, ChevronRight } from "lucide-react";
+import { LogOut, ChevronRight, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,7 +60,10 @@ export default function Perfil() {
   }
 
   return (
-    <div className="px-4 pt-6 space-y-6">
+    <div className="px-4 pt-6 space-y-6 animate-slide-up">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
+        <ArrowLeft className="h-5 w-5" /> Regresar
+      </button>
       <div className="flex flex-col items-center text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-3xl font-bold text-primary-foreground">
           {initials}

@@ -75,8 +75,10 @@ export default function Creditos() {
     );
   }
 
-  return (
     <div className="px-4 pt-6 space-y-8 pb-24">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
+        <ArrowLeft className="h-5 w-5" /> Regresar
+      </button>
       <h1 className="text-2xl font-extrabold">💳 Créditos y apoyos</h1>
 
       <div className="rounded-3xl bg-success/15 p-5 border border-success/20">

@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Navigate, useLocation } from "react-router-dom";
-import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle, ArrowLeft } from "lucide-react";
+import { ArrowLeft, DollarSign, FileText, Camera, Sparkles, Loader2, X, Check, AlertCircle, ImagePlus, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,7 +35,6 @@ export default function Registrar() {
 
   // Pre-llenar si viene de Expediente
   const initialData = location.state as { monto?: number; descripcion?: string } | null;
-<<<<<<< HEAD
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TransaccionForm>({
     resolver: zodResolver(TransaccionSchema),
@@ -49,14 +48,6 @@ export default function Registrar() {
   const montoWatch = watch("monto");
   const conceptoWatch = watch("concepto");
 
-=======
-  
-  const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : "");
-  const [descripcion, setDescripcion] = useState(initialData?.descripcion || "");
-  const [comercio, setComercio] = useState("");
-  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
-  
->>>>>>> 6ebf3940726bd12990cb8fb58548fce5a0489f3c
   const [busy, setBusy] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [ocrStep, setOcrStep] = useState<string>("");
@@ -111,15 +102,9 @@ export default function Registrar() {
       
       const r = await txService.crear({
         tipo: isIngreso ? "INGRESO" : "GASTO",
-<<<<<<< HEAD
         monto: data.monto,
         descripcion: data.concepto.trim() || null,
-=======
-        monto: montoNum,
-        descripcion: descripcion.trim(),
-        fecha: fecha,
         origen: ocrResult ? "OCR" : "manual",
->>>>>>> 6ebf3940726bd12990cb8fb58548fce5a0489f3c
       });
 
       if (r.offline) {
@@ -127,13 +112,8 @@ export default function Registrar() {
       } else {
         toast.success(
           isIngreso
-<<<<<<< HEAD
             ? `¡Listo! Registraste una venta de $${data.monto.toLocaleString("es-MX")}`
-            : `¡Listo! Registraste un gasto de $${data.monto.toLocaleString("es-MX")}`,
-=======
-            ? `¡Listo! Registramos tu venta por $${montoNum.toLocaleString("es-MX")}`
             : `¡Listo! Tu gasto fue guardado correctamente`,
->>>>>>> 6ebf3940726bd12990cb8fb58548fce5a0489f3c
         );
       }
       navigate("/");
@@ -152,13 +132,10 @@ export default function Registrar() {
     setOcrResult(null);
 
     try {
-<<<<<<< HEAD
-      setOcrStep("Escaneando imagen...");
-      await new Promise(r => setTimeout(r, 800));
-
+      setOcrStep("Analizando imagen con IA...");
       const datos = await procesarImagenTicket(file);
-
-      setOcrStep("Extrayendo montos y conceptos...");
+      
+      setOcrStep("Extrayendo montos...");
       await new Promise(r => setTimeout(r, 600));
 
       if (datos.monto_detectado) {
@@ -167,31 +144,9 @@ export default function Registrar() {
 
       // Para gastos, sugerimos el RFC si existe
       if (!isIngreso && datos.rfc_emisor) {
-        setValue("concepto", `Gasto RFC: ${datos.rfc_emisor}`, { shouldValidate: true });
+        setValue("concepto", `Gasto detectado (RFC: ${datos.rfc_emisor})`, { shouldValidate: true });
       }
 
-=======
-      setOcrStep("Analizando imagen con IA...");
-      const datos = await procesarImagenTicket(file);
-      
-      setOcrStep("Extrayendo montos...");
-      await new Promise(r => setTimeout(r, 600));
-
-      if (datos.monto_detectado) {
-        setMonto(String(datos.monto_detectado.toFixed(2)));
-        setTouched(t => ({ ...t, monto: true }));
-      }
-      
-      if (datos.rfc_emisor) {
-        setDescripcion(`Gasto detectado (RFC: ${datos.rfc_emisor})`);
-        setTouched(t => ({ ...t, descripcion: true }));
-      }
-      
-      if (datos.fecha_emision) {
-        setFecha(datos.fecha_emision.split("T")[0]);
-      }
-      
->>>>>>> 6ebf3940726bd12990cb8fb58548fce5a0489f3c
       setOcrResult(datos);
       toast.success("¡Leímos tu ticket con éxito! 🧐");
     } catch (err: any) {

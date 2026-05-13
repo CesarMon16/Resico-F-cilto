@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Store, Calculator } from "lucide-react";
+import { ArrowLeft, Store, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,7 +22,10 @@ export default function ElegirRol() {
   void nav;
 
   return (
-    <div className="px-4 pt-10 space-y-6">
+    <div className="px-4 pt-10 space-y-6 animate-slide-up">
+      <button onClick={() => nav(-1)} className="flex items-center gap-2 text-muted-foreground font-semibold">
+        <ArrowLeft className="h-5 w-5" /> Regresar
+      </button>
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-extrabold">¿Cómo usarás la app? 👋</h1>
         <p className="text-muted-foreground">Elige una opción para empezar</p>

@@ -79,9 +79,7 @@ export default function PerfilFiscal() {
       .update({
         nombre: form.nombre.trim(),
         rfc: form.rfc.trim().toUpperCase() || null,
-        curp: form.curp.trim().toUpperCase() || null,
-        actividad_economica: form.actividad_economica.trim() || null,
-        correo: form.correo.trim() || null,
+        telefono: form.telefono.trim() || null,
         domicilio_fiscal: form.domicilio_fiscal.trim() || null,
         fecha_inicio_operaciones: form.fecha_inicio_operaciones || null,
         regimen_fiscal: "RESICO_PF",
@@ -131,19 +129,8 @@ export default function PerfilFiscal() {
           help="Lo encuentras en tu Constancia de Situación Fiscal"
         />
         <Field label="CURP" value={form.curp} onChange={(v) => set("curp", v.toUpperCase())} placeholder="18 caracteres" maxLength={18} />
-        <Field label="Actividad económica" value={form.actividad_economica} onChange={(v) => set("actividad_economica", v)} placeholder="Ej: Venta de comida, Servicios de belleza" />
         <Field label="Correo electrónico" value={form.correo} onChange={(v) => set("correo", v)} placeholder="tucorreo@ejemplo.com" type="email" />
-        <div className="space-y-1">
-          <label className="block font-semibold text-sm">Teléfono</label>
-          <input
-            type="text"
-            value={form.telefono}
-            readOnly
-            disabled
-            className="w-full rounded-xl border border-input bg-muted p-3 outline-none opacity-70 cursor-not-allowed"
-          />
-          <p className="text-[10px] text-muted-foreground italic">El identificador de contacto no es mutable en tiempo de ejecución.</p>
-        </div>
+        <Field label="Teléfono" value={form.telefono} onChange={(v) => set("telefono", v)} placeholder="10 dígitos" />
         <Field label="Domicilio fiscal" value={form.domicilio_fiscal} onChange={(v) => set("domicilio_fiscal", v)} placeholder="Calle, número, colonia" />
         <Field label="Fecha de inicio de operaciones" value={form.fecha_inicio_operaciones} onChange={(v) => set("fecha_inicio_operaciones", v)} type="date" />
 
