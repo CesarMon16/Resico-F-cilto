@@ -41,7 +41,8 @@ export default function Registrar() {
     defaultValues: {
       tipo: isIngreso ? "ingreso" : "gasto",
       monto: initialData?.monto || 0,
-      concepto: initialData?.descripcion || ""
+      concepto: initialData?.descripcion || "",
+      fecha: new Date().toISOString().split("T")[0]
     }
   });
 
@@ -103,7 +104,8 @@ export default function Registrar() {
       const r = await txService.crear({
         tipo: isIngreso ? "INGRESO" : "GASTO",
         monto: data.monto,
-        descripcion: data.concepto.trim() || null,
+        descripcion: data.concepto?.trim() || null,
+        fecha: data.fecha || new Date().toISOString().split("T")[0],
         origen: ocrResult ? "OCR" : "manual",
       });
 
@@ -113,7 +115,7 @@ export default function Registrar() {
         toast.success(
           isIngreso
             ? `¡Listo! Registraste una venta de $${data.monto.toLocaleString("es-MX")}`
-            : `¡Listo! Tu gasto fue guardado correctamente`,
+            : `¡Listo! Registraste un gasto de $${data.monto.toLocaleString("es-MX")}`,
         );
       }
       navigate("/");
@@ -133,6 +135,8 @@ export default function Registrar() {
 
     try {
       setOcrStep("Analizando imagen con IA...");
+      await new Promise(r => setTimeout(r, 800));
+
       const datos = await procesarImagenTicket(file);
       
       setOcrStep("Extrayendo montos...");
@@ -145,6 +149,10 @@ export default function Registrar() {
       // Para gastos, sugerimos el RFC si existe
       if (!isIngreso && datos.rfc_emisor) {
         setValue("concepto", `Gasto detectado (RFC: ${datos.rfc_emisor})`, { shouldValidate: true });
+      }
+
+      if (datos.fecha_emision) {
+        setValue("fecha", datos.fecha_emision.split("T")[0], { shouldValidate: true });
       }
 
       setOcrResult(datos);
